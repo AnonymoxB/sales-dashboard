@@ -308,8 +308,10 @@ model Hutang {
   totalBayar    Decimal   @default(0) @db.Decimal(15, 2) @map("total_bayar")
   sisaHutang    Decimal   @db.Decimal(15, 2) @map("sisa_hutang")
   statusLunas   Boolean   @default(false) @map("status_lunas")
+  externalId    String?   @unique @map("external_id")
+  syncedAt      DateTime? @map("synced_at")
   deletedAt     DateTime? @map("deleted_at")
-  source    String    @default("manual")
+  source        String    @default("manual")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
