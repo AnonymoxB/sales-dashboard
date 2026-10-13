@@ -2,13 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
-import {
-  penjualanSchema,
-  type PenjualanInput,
-} from '@/lib/validations/penjualan'
+import { penjualanSchema, type PenjualanInput } from '@/lib/validations/penjualan'
 import { refreshDashboardMV } from './refresh-mv'
 
-// Helper: hitung total omzet
 function hitungTotal(qty: number, hargaSatuan: number, diskon: number) {
   return Math.max(0, qty * hargaSatuan - diskon)
 }
@@ -18,9 +14,8 @@ export async function createPenjualan(input: PenjualanInput) {
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   try {
-    // Ambil idCabang dari sales
     const sales = await prisma.sales.findUnique({
-      where: { id: parsed.data.idSales },
+      where: { id: parsed.data.idSales, deletedAt: null },
       select: { idCabang: true },
     })
     if (!sales) return { error: 'Sales tidak ditemukan' }
@@ -41,6 +36,7 @@ export async function createPenjualan(input: PenjualanInput) {
         hargaSatuan: parsed.data.hargaSatuan,
         diskon: parsed.data.diskon,
         totalOmzet,
+        source: 'manual',
       },
     })
 
@@ -59,7 +55,7 @@ export async function updatePenjualan(id: bigint, input: PenjualanInput) {
 
   try {
     const sales = await prisma.sales.findUnique({
-      where: { id: parsed.data.idSales },
+      where: { id: parsed.data.idSales, deletedAt: null },
       select: { idCabang: true },
     })
     if (!sales) return { error: 'Sales tidak ditemukan' }
@@ -95,7 +91,12 @@ export async function updatePenjualan(id: bigint, input: PenjualanInput) {
 
 export async function deletePenjualan(id: bigint) {
   try {
-    await prisma.penjualan.delete({ where: { id } })
+    // SOFT DELETE
+    await prisma.penjualan.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    })
+
     revalidatePath('/dashboard/penjualan')
     await refreshDashboardMV()
     return { success: true }

@@ -1,7 +1,7 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { updateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 
 export async function refreshDashboardMV() {
   try {
@@ -12,8 +12,8 @@ export async function refreshDashboardMV() {
       REFRESH MATERIALIZED VIEW CONCURRENTLY mv_omzet_bulanan;
     `)
 
-    updateTag('dashboard1')
-    updateTag('dashboard2')
+    revalidateTag('dashboard1', 'max')
+    revalidateTag('dashboard2', 'max')
 
     return { success: true }
   } catch (error) {

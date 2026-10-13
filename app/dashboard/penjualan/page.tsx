@@ -36,6 +36,7 @@ export default async function PenjualanPage({
   const sampai = params.sampai ? new Date(params.sampai) : undefined
 
   const where = {
+    deletedAt: null,
     ...(cabangParam ? { idCabang: cabangParam } : {}),
     ...(salesParam ? { idSales: salesParam } : {}),
     ...(dari || sampai
@@ -70,20 +71,22 @@ export default async function PenjualanPage({
         cabang: { select: { id: true, nama: true } },
       },
     }),
-    prisma.cabang.findMany({ orderBy: { nama: 'asc' } }),
+    prisma.cabang.findMany({
+      where: { deletedAt: null },
+      orderBy: { nama: 'asc' },
+    }),
     prisma.sales.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       include: { cabang: { select: { nama: true } } },
     }),
     prisma.part.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       include: { bahan: { select: { nama: true } } },
     }),
   ])
 
-  // Normalisasi Decimal → number
   const data = rawData.map((p) => ({
     id: p.id.toString(),
     tanggal: p.tanggal.toISOString(),

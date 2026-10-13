@@ -25,18 +25,24 @@ export default async function TargetPage({
 
   const [listSales, existingTargets, penjualanBulan] = await Promise.all([
     prisma.sales.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: [{ idCabang: 'asc' }, { nama: 'asc' }],
       include: { cabang: { select: { id: true, nama: true } } },
     }),
     prisma.target.findMany({
-      where: { periode: { gte: startOfMonth, lte: endOfMonth } },
+      where: {
+        deletedAt: null,
+        periode: { gte: startOfMonth, lte: endOfMonth },
+      },
       select: { idSales: true, targetOmzet: true },
     }),
     prisma.penjualan.groupBy({
       by: ['idSales'],
       _sum: { totalOmzet: true, qty: true },
-      where: { tanggal: { gte: startOfMonth, lte: endOfMonth } },
+      where: {
+        deletedAt: null,
+        tanggal: { gte: startOfMonth, lte: endOfMonth },
+      },
     }),
   ])
 

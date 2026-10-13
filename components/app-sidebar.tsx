@@ -13,6 +13,8 @@ import {
   BarChart3,
   ArrowUpDown,
   Key,
+  Building2,
+  Trash2,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -46,9 +48,11 @@ const menuItems = [
 const masterItems = [
   { title: 'Sales', url: '/dashboard/sales', icon: Users },
   { title: 'Cabang', url: '/dashboard/cabang', icon: Store },
+  { title: 'Customer', url: '/dashboard/customer', icon: Building2 },
   { title: 'Produk', url: '/dashboard/produk', icon: Package },
   { title: 'Import/Export', url: '/dashboard/import-export', icon: ArrowUpDown },
   { title: 'API Keys', url: '/dashboard/api-keys', icon: Key },
+  { title: 'Trash', url: '/dashboard/trash', icon: Trash2 },
 ]
 
 export function AppSidebar({

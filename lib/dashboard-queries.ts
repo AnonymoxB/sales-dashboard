@@ -70,6 +70,7 @@ function safeInt(v: number | undefined): number | undefined {
 
 function buildPenjualanWhere(f: Dashboard2Filters, from: string, to: string): string {
   const c: string[] = [
+    `p.deleted_at IS NULL`,               // ← soft delete filter
     `p.tanggal >= '${from}'::date`,
     `p.tanggal <= '${to}'::date`,
   ]
@@ -92,6 +93,7 @@ function buildPenjualanWhere(f: Dashboard2Filters, from: string, to: string): st
 
 function buildFakturWhere(f: Dashboard2Filters, from: string, to: string): string {
   const c: string[] = [
+    `f.deleted_at IS NULL`,               // ← soft delete filter
     `f.tanggal >= '${from}'::date`,
     `f.tanggal <= '${to}'::date`,
   ]
@@ -109,7 +111,10 @@ function buildFakturWhere(f: Dashboard2Filters, from: string, to: string): strin
 }
 
 function buildHutangWhere(f: Dashboard2Filters): string {
-  const c: string[] = ['h.status_lunas = false']
+  const c: string[] = [
+    `h.deleted_at IS NULL`,               // ← soft delete filter
+    `h.status_lunas = false`,
+  ]
   const idCabang = safeInt(f.idCabang)
   const idSales = safeInt(f.idSales)
 
@@ -121,6 +126,7 @@ function buildHutangWhere(f: Dashboard2Filters): string {
 
 function buildTargetWhere(f: Dashboard2Filters, from: string, to: string): string {
   const c: string[] = [
+    `t.deleted_at IS NULL`,               // ← soft delete filter
     `t.periode >= '${from}'::date`,
     `t.periode <= '${to}'::date`,
   ]
@@ -142,14 +148,13 @@ function emptyCell(): PivotSalesCell {
 const BULAN_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 
 // ============================================
-// DASHBOARD 1 — dengan 7 filter
+// DASHBOARD 1
 // ============================================
 async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
   const tahun = safeInt(filters.tahun) ?? new Date().getFullYear()
   const bulanNum = safeInt(filters.bulan)
   const idCabang = safeInt(filters.idCabang)
 
-  // Range tanggal
   const fromDate = bulanNum
     ? `${tahun}-${String(bulanNum).padStart(2, '0')}-01`
     : `${tahun}-01-01`
@@ -157,7 +162,6 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
     ? new Date(tahun, bulanNum, 0).toISOString().slice(0, 10)
     : `${tahun}-12-31`
 
-  // Dynamic WHERE
   const pWhere = buildPenjualanWhere(filters, fromDate, toDate)
   const fWhere = buildFakturWhere(filters, fromDate, toDate)
   const hWhere = buildHutangWhere(filters)
@@ -200,7 +204,7 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
       WHERE ${tWhere}
     `),
 
-    // 3. Hutang (sisa + total + count)
+    // 3. Hutang
     prisma.$queryRawUnsafe<Row[]>(`
       SELECT COALESCE(SUM(h.sisa_hutang), 0)::numeric AS sisa,
              COALESCE(SUM(h.total_hutang), 0)::numeric AS total,
@@ -209,9 +213,10 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
       WHERE ${hWhere}
     `),
 
-    // 4. Faktur belum lunas (TANPA filter tanggal — semua hutang tampil)
+    // 4. Faktur belum lunas
     prisma.faktur.findMany({
       where: {
+        deletedAt: null,                  // ← soft delete
         status: { in: ['BELUM_LUNAS', 'JATUH_TEMPO'] },
         ...(idCabang ? { idCabang } : {}),
         ...(filters.idSales ? { idSales: filters.idSales } : {}),
@@ -241,29 +246,34 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
     `),
 
     // 6. Cabang list
-    prisma.cabang.findMany({ orderBy: { nama: 'asc' } }),
+    prisma.cabang.findMany({
+      where: { deletedAt: null },
+      orderBy: { nama: 'asc' },
+    }),
 
     // 7-11. Filter options
     prisma.sales.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.customer.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.bahan.findMany({
+      where: { deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.jenis.findMany({
+      where: { deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.part.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
@@ -345,7 +355,7 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
       ORDER BY b.nama, s.nama, tahun
     `),
 
-    // 16. Hutang per sales (chart, TANPA filter tanggal)
+    // 16. Hutang per sales (chart)
     prisma.$queryRawUnsafe<HutangUnitValueRow[]>(`
       SELECT s.nama AS nama_sales,
              COALESCE(SUM(h.total_hutang), 0)::numeric AS total_hutang,
@@ -358,7 +368,7 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
       LIMIT 10
     `),
 
-    // 17. Faktur status chart (TANPA filter tanggal)
+    // 17. Faktur status chart
     prisma.$queryRawUnsafe<FakturStatusRow[]>(`
       SELECT s.nama AS nama_sales,
              COALESCE(SUM(CASE WHEN h.jatuh_tempo >= CURRENT_DATE THEN h.sisa_hutang ELSE 0 END), 0)::numeric AS belum_jt,
@@ -382,13 +392,11 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
   const hutangTotal = Number(hutangRow[0]?.total ?? 0)
   const hutangCount = Number(hutangRow[0]?.count ?? 0)
 
-  // Omzet per cabang
   const pencapaianPerCabang = (omzetPerCabangRows as Row[]).map((r) => ({
     nama: r.nama_cabang as string,
     omzet: Number(r.omzet ?? 0),
   }))
 
-  // Pencapaian per sales (dari breakdown part di-group ulang)
   const salesAggMap = new Map<string, { nama: string; omzet: number; qty: number }>()
   for (const r of breakdownPartRows as BreakdownRow[]) {
     const existing = salesAggMap.get(r.nama_sales) ?? {
@@ -411,7 +419,6 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
     }))
     .sort((a, b) => b.omzet - a.omzet)
 
-  // Faktur belum lunas
   const fakturBelumLunas = fakturBelumLunasRaw.map((f) => ({
     id: f.id.toString(),
     nomorFaktur: f.nomorFaktur,
@@ -423,7 +430,6 @@ async function _getDashboard1Data(filters: Dashboard2Filters = {}) {
     customer: { nama: f.customer?.nama ?? '-' },
   }))
 
-  // Breakdown map
   const mapBreakdown = (rows: BreakdownRow[]) => {
     const grouped = new Map<string, {
       namaSales: string
@@ -692,25 +698,27 @@ async function _getDashboard2Data(filters: Dashboard2Filters = {}) {
     `),
 
     prisma.sales.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.customer.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.bahan.findMany({
+      where: { deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.jenis.findMany({
+      where: { deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
     prisma.part.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       select: { id: true, kode: true, nama: true },
     }),
@@ -738,7 +746,6 @@ async function _getDashboard2Data(filters: Dashboard2Filters = {}) {
     `),
   ])
 
-  // KPI
   const totalOmzet = Number(kpiPenjualan[0]?.total_omzet ?? 0)
   const totalUnit = Number(kpiPenjualan[0]?.total_qty ?? 0)
   const totalBayar = Number(kpiBayar[0]?.total ?? 0)
@@ -784,7 +791,6 @@ async function _getDashboard2Data(filters: Dashboard2Filters = {}) {
     .sort((a, b) => b.total - a.total)
     .slice(0, 10)
 
-  // Pivot
   const pivotMap = new Map<number, PivotRow>()
   const salesSet = new Map<number, PivotSalesInfo>()
 

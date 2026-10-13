@@ -6,9 +6,7 @@ import { cabangSchema, type CabangInput } from '@/lib/validations/cabang'
 
 export async function createCabang(input: CabangInput) {
   const parsed = cabangSchema.safeParse(input)
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
-  }
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   try {
     await prisma.cabang.create({
@@ -17,24 +15,21 @@ export async function createCabang(input: CabangInput) {
         nama: parsed.data.nama,
         wilayah: parsed.data.wilayah || null,
         alamat: parsed.data.alamat || null,
+        source: 'manual',
       },
     })
     revalidatePath('/dashboard/cabang')
     return { success: true }
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string }
-    if (err.code === 'P2002') {
-      return { error: 'Kode cabang sudah digunakan' }
-    }
+    if (err.code === 'P2002') return { error: 'Kode cabang sudah digunakan' }
     return { error: err.message ?? 'Gagal menyimpan cabang' }
   }
 }
 
 export async function updateCabang(id: number, input: CabangInput) {
   const parsed = cabangSchema.safeParse(input)
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
-  }
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   try {
     await prisma.cabang.update({
@@ -50,26 +45,23 @@ export async function updateCabang(id: number, input: CabangInput) {
     return { success: true }
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string }
-    if (err.code === 'P2002') {
-      return { error: 'Kode cabang sudah digunakan' }
-    }
+    if (err.code === 'P2002') return { error: 'Kode cabang sudah digunakan' }
     return { error: err.message ?? 'Gagal mengubah cabang' }
   }
 }
 
 export async function deleteCabang(id: number) {
   try {
-    // Cek relasi
     const cabang = await prisma.cabang.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: {
         _count: {
           select: {
-            sales: true,
-            penjualan: true,
-            target: true,
-            hutang: true,
-            faktur: true,
+            sales: { where: { deletedAt: null } },
+            penjualan: { where: { deletedAt: null } },
+            target: { where: { deletedAt: null } },
+            hutang: { where: { deletedAt: null } },
+            faktur: { where: { deletedAt: null } },
             users: true,
           },
         },
@@ -88,11 +80,16 @@ export async function deleteCabang(id: number) {
 
     if (totalRelasi > 0) {
       return {
-        error: `Cabang masih dipakai oleh ${totalRelasi} data terkait (sales/penjualan/target/hutang/faktur/user). Hapus data terkait terlebih dahulu.`,
+        error: `Cabang masih dipakai oleh ${totalRelasi} data terkait. Nonaktifkan atau hapus data terkait dulu.`,
       }
     }
 
-    await prisma.cabang.delete({ where: { id } })
+    // SOFT DELETE
+    await prisma.cabang.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    })
+
     revalidatePath('/dashboard/cabang')
     return { success: true }
   } catch (e: unknown) {

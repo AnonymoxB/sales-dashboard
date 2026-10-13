@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, updateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
 import {
   fakturSchema,
@@ -8,29 +8,30 @@ import {
   type FakturInput,
   type PembayaranInput,
 } from '@/lib/validations/hutang'
+import { refreshDashboardMV } from './refresh-mv'
 
 export async function createFaktur(input: FakturInput) {
   const parsed = fakturSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   try {
-    // Ambil idCabang dari sales
     const sales = await prisma.sales.findUnique({
-      where: { id: parsed.data.idSales },
+      where: { id: parsed.data.idSales, deletedAt: null },
       select: { idCabang: true },
     })
     if (!sales) return { error: 'Sales tidak ditemukan' }
 
-    // Hitung total tagihan
     const totalTagihan = parsed.data.items.reduce(
       (sum, item) => sum + item.qty * item.hargaSatuan,
       0
     )
+    const subtotalDpp = totalTagihan
+    const ppn = Math.round(subtotalDpp * 0.11)
+    const total = subtotalDpp + ppn
 
     const tanggal = new Date(parsed.data.tanggal)
     const jatuhTempo = new Date(parsed.data.jatuhTempo)
 
-    // Transaction: Faktur + DetailFaktur + Hutang
     const faktur = await prisma.$transaction(async (tx) => {
       const newFaktur = await tx.faktur.create({
         data: {
@@ -39,8 +40,11 @@ export async function createFaktur(input: FakturInput) {
           jatuhTempo,
           idSales: parsed.data.idSales,
           idCabang: sales.idCabang,
-          totalTagihan,
+          subtotalDpp,
+          ppn,
+          totalTagihan: total,
           status: 'BELUM_LUNAS',
+          source: 'manual',
           detail: {
             create: parsed.data.items.map((item) => ({
               idPart: item.idPart,
@@ -52,7 +56,6 @@ export async function createFaktur(input: FakturInput) {
         },
       })
 
-      // Buat hutang otomatis
       await tx.hutang.create({
         data: {
           idFaktur: newFaktur.id,
@@ -60,9 +63,9 @@ export async function createFaktur(input: FakturInput) {
           idCabang: sales.idCabang,
           tanggalFaktur: tanggal,
           jatuhTempo,
-          totalHutang: totalTagihan,
+          totalHutang: total,
           totalBayar: 0,
-          sisaHutang: totalTagihan,
+          sisaHutang: total,
           statusLunas: false,
         },
       })
@@ -71,8 +74,7 @@ export async function createFaktur(input: FakturInput) {
     })
 
     revalidatePath('/dashboard/hutang')
-    updateTag('dashboard1')
-    updateTag('dashboard2')
+    await refreshDashboardMV()
     return { success: true, id: faktur.id.toString() }
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string }
@@ -83,26 +85,29 @@ export async function createFaktur(input: FakturInput) {
 
 export async function deleteFaktur(id: bigint) {
   try {
-    // Cek pembayaran
     const hutang = await prisma.hutang.findFirst({
-      where: { idFaktur: id },
+      where: { idFaktur: id, deletedAt: null },
     })
     if (hutang && Number(hutang.totalBayar) > 0) {
       return {
-        error: 'Faktur sudah ada pembayaran. Hapus pembayaran dulu atau batalkan secara manual.',
+        error: 'Faktur sudah ada pembayaran. Tidak bisa dihapus.',
       }
     }
 
-    // Cascade: Hutang + DetailFaktur akan terhapus otomatis
+    // SOFT DELETE Faktur + Hutang
     await prisma.$transaction(async (tx) => {
-      await tx.hutang.deleteMany({ where: { idFaktur: id } })
-      await tx.detailFaktur.deleteMany({ where: { idFaktur: id } })
-      await tx.faktur.delete({ where: { id } })
+      await tx.hutang.updateMany({
+        where: { idFaktur: id },
+        data: { deletedAt: new Date() },
+      })
+      await tx.faktur.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      })
     })
 
     revalidatePath('/dashboard/hutang')
-    updateTag('dashboard1')
-    updateTag('dashboard2')
+    await refreshDashboardMV()
     return { success: true }
   } catch (e: unknown) {
     const err = e as { message?: string }
@@ -116,7 +121,7 @@ export async function bayarHutang(input: PembayaranInput) {
 
   try {
     const hutang = await prisma.hutang.findUnique({
-      where: { id: parsed.data.idHutang },
+      where: { id: parsed.data.idHutang, deletedAt: null },
     })
     if (!hutang) return { error: 'Hutang tidak ditemukan' }
     if (hutang.statusLunas) return { error: 'Hutang sudah lunas' }
@@ -142,7 +147,6 @@ export async function bayarHutang(input: PembayaranInput) {
         },
       })
 
-      // Update status faktur kalau lunas
       if (lunas) {
         await tx.faktur.update({
           where: { id: hutang.idFaktur },
@@ -152,8 +156,7 @@ export async function bayarHutang(input: PembayaranInput) {
     })
 
     revalidatePath('/dashboard/hutang')
-    updateTag('dashboard1')
-    updateTag('dashboard2')
+    await refreshDashboardMV()
     return { success: true }
   } catch (e: unknown) {
     const err = e as { message?: string }

@@ -3,14 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
 import {
-  merkSchema,
-  jenisSchema,
-  bahanSchema,
-  partSchema,
-  type MerkInput,
-  type JenisInput,
-  type BahanInput,
-  type PartInput,
+  merkSchema, jenisSchema, bahanSchema, partSchema,
+  type MerkInput, type JenisInput, type BahanInput, type PartInput,
 } from '@/lib/validations/produk'
 
 // ============================================
@@ -22,7 +16,7 @@ export async function createMerk(input: MerkInput) {
 
   try {
     await prisma.merk.create({
-      data: { kode: parsed.data.kode, nama: parsed.data.nama },
+      data: { kode: parsed.data.kode, nama: parsed.data.nama, source: 'manual' },
     })
     revalidatePath('/dashboard/produk')
     return { success: true }
@@ -54,16 +48,14 @@ export async function updateMerk(id: number, input: MerkInput) {
 export async function deleteMerk(id: number) {
   try {
     const merk = await prisma.merk.findUnique({
-      where: { id },
-      include: { _count: { select: { bahan: true } } },
+      where: { id, deletedAt: null },
+      include: { _count: { select: { bahan: { where: { deletedAt: null } } } } },
     })
     if (!merk) return { error: 'Merk tidak ditemukan' }
     if (merk._count.bahan > 0) {
-      return {
-        error: `Merk masih dipakai oleh ${merk._count.bahan} bahan. Hapus bahan terkait dulu.`,
-      }
+      return { error: `Merk masih dipakai oleh ${merk._count.bahan} bahan.` }
     }
-    await prisma.merk.delete({ where: { id } })
+    await prisma.merk.update({ where: { id }, data: { deletedAt: new Date() } })
     revalidatePath('/dashboard/produk')
     return { success: true }
   } catch (e: unknown) {
@@ -81,7 +73,7 @@ export async function createJenis(input: JenisInput) {
 
   try {
     await prisma.jenis.create({
-      data: { kode: parsed.data.kode, nama: parsed.data.nama },
+      data: { kode: parsed.data.kode, nama: parsed.data.nama, source: 'manual' },
     })
     revalidatePath('/dashboard/produk')
     return { success: true }
@@ -113,16 +105,14 @@ export async function updateJenis(id: number, input: JenisInput) {
 export async function deleteJenis(id: number) {
   try {
     const jenis = await prisma.jenis.findUnique({
-      where: { id },
-      include: { _count: { select: { bahan: true } } },
+      where: { id, deletedAt: null },
+      include: { _count: { select: { bahan: { where: { deletedAt: null } } } } },
     })
     if (!jenis) return { error: 'Jenis tidak ditemukan' }
     if (jenis._count.bahan > 0) {
-      return {
-        error: `Jenis masih dipakai oleh ${jenis._count.bahan} bahan. Hapus bahan terkait dulu.`,
-      }
+      return { error: `Jenis masih dipakai oleh ${jenis._count.bahan} bahan.` }
     }
-    await prisma.jenis.delete({ where: { id } })
+    await prisma.jenis.update({ where: { id }, data: { deletedAt: new Date() } })
     revalidatePath('/dashboard/produk')
     return { success: true }
   } catch (e: unknown) {
@@ -145,6 +135,7 @@ export async function createBahan(input: BahanInput) {
         nama: parsed.data.nama,
         idMerk: parsed.data.idMerk,
         idJenis: parsed.data.idJenis,
+        source: 'manual',
       },
     })
     revalidatePath('/dashboard/produk')
@@ -182,16 +173,14 @@ export async function updateBahan(id: number, input: BahanInput) {
 export async function deleteBahan(id: number) {
   try {
     const bahan = await prisma.bahan.findUnique({
-      where: { id },
-      include: { _count: { select: { part: true } } },
+      where: { id, deletedAt: null },
+      include: { _count: { select: { part: { where: { deletedAt: null } } } } },
     })
     if (!bahan) return { error: 'Bahan tidak ditemukan' }
     if (bahan._count.part > 0) {
-      return {
-        error: `Bahan masih dipakai oleh ${bahan._count.part} part. Hapus part terkait dulu.`,
-      }
+      return { error: `Bahan masih dipakai oleh ${bahan._count.part} part.` }
     }
-    await prisma.bahan.delete({ where: { id } })
+    await prisma.bahan.update({ where: { id }, data: { deletedAt: new Date() } })
     revalidatePath('/dashboard/produk')
     return { success: true }
   } catch (e: unknown) {
@@ -216,6 +205,7 @@ export async function createPart(input: PartInput) {
         satuan: parsed.data.satuan,
         hargaJual: parsed.data.hargaJual,
         aktif: parsed.data.aktif,
+        source: 'manual',
       },
     })
     revalidatePath('/dashboard/produk')
@@ -255,10 +245,13 @@ export async function updatePart(id: number, input: PartInput) {
 export async function deletePart(id: number) {
   try {
     const part = await prisma.part.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: {
         _count: {
-          select: { penjualan: true, detailFaktur: true },
+          select: {
+            penjualan: { where: { deletedAt: null } },
+            detailFaktur: { where: { faktur: { deletedAt: null } } },
+          },
         },
       },
     })
@@ -266,11 +259,9 @@ export async function deletePart(id: number) {
 
     const total = part._count.penjualan + part._count.detailFaktur
     if (total > 0) {
-      return {
-        error: `Part masih dipakai oleh ${total} transaksi. Hapus transaksi terkait dulu.`,
-      }
+      return { error: `Part masih dipakai oleh ${total} transaksi.` }
     }
-    await prisma.part.delete({ where: { id } })
+    await prisma.part.update({ where: { id }, data: { deletedAt: new Date() } })
     revalidatePath('/dashboard/produk')
     return { success: true }
   } catch (e: unknown) {

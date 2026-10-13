@@ -1,122 +1,143 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKey } from '@/lib/api-auth'
 import prisma from '@/lib/prisma'
+import { emptyResult, extractArray, normalizeBool, str } from '@/lib/api-upsert'
 
 type CustomerInput = {
+  externalId?: string
   kode?: string
   nama?: string
   alamat?: string
   telepon?: string
   aktif?: boolean
-}
-
-type UpsertResult = {
-  created: number
-  updated: number
-  failed: number
-  errors: { index: number; kode?: string; message: string }[]
+  deleted?: boolean
 }
 
 export async function POST(request: NextRequest) {
-  // 1. Auth
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: 401 })
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+
+  let body: unknown
+  try { body = await request.json() } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // 2. Parse body
-  let body: { customers?: CustomerInput[] } | CustomerInput
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-  }
+  const items = extractArray<CustomerInput>(body, 'customers')
+  if (items.length === 0) return NextResponse.json({ error: 'No data' }, { status: 400 })
+  if (items.length > 500) return NextResponse.json({ error: 'Max 500 per request' }, { status: 400 })
 
-  // Support single object OR array via { customers: [...] }
-  const customers: CustomerInput[] = Array.isArray(body)
-    ? body
-    : 'customers' in body && Array.isArray(body.customers)
-    ? body.customers
-    : 'kode' in body
-    ? [body as CustomerInput]
-    : []
+  const result = emptyResult()
 
-  if (customers.length === 0) {
-    return NextResponse.json(
-      { error: 'No customers provided. Send array or { customers: [...] }' },
-      { status: 400 }
-    )
-  }
-
-  if (customers.length > 500) {
-    return NextResponse.json(
-      { error: 'Maximum 500 customers per request. Split into batches.' },
-      { status: 400 }
-    )
-  }
-
-  // 3. Process
-  const result: UpsertResult = { created: 0, updated: 0, failed: 0, errors: [] }
-
-  for (let i = 0; i < customers.length; i++) {
-    const c = customers[i]
-
+  for (let i = 0; i < items.length; i++) {
+    const c = items[i]
     try {
-      const kode = String(c.kode ?? '').trim()
-      const nama = String(c.nama ?? '').trim()
-      const alamat = String(c.alamat ?? '').trim()
-      const telepon = String(c.telepon ?? '').trim()
-      const aktif = c.aktif !== false
+      const externalId = c.externalId ? str(c.externalId) : null
+      const kode = str(c.kode)
 
-      if (!kode || !nama) {
-        result.errors.push({ index: i, kode, message: 'kode & nama wajib diisi' })
+      if (!externalId && !kode) {
+        result.errors.push({ index: i, message: 'externalId atau kode wajib' })
         result.failed++
         continue
       }
 
-      // Cek existing
-      const existing = await prisma.customer.findUnique({ where: { kode } })
+      // === SOFT DELETE ===
+      if (c.deleted === true) {
+        const where = externalId ? { externalId } : { kode }
+        const found = await prisma.customer.findUnique({ where })
+        if (!found) {
+          result.errors.push({ index: i, kode, externalId: externalId ?? undefined, message: 'Data tidak ditemukan' })
+          result.failed++
+          continue
+        }
+        if (found.deletedAt) { result.skipped++; continue }
+        await prisma.customer.update({
+          where: { id: found.id },
+          data: { deletedAt: new Date(), syncedAt: new Date() },
+        })
+        result.deleted++
+        continue
+      }
 
-      await prisma.customer.upsert({
-        where: { kode },
-        update: { nama, alamat: alamat || null, telepon: telepon || null, aktif },
-        create: { kode, nama, alamat: alamat || null, telepon: telepon || null, aktif },
-      })
+      // === UPSERT ===
+      const nama = str(c.nama)
+      if (!nama) {
+        result.errors.push({ index: i, kode, externalId: externalId ?? undefined, message: 'nama wajib' })
+        result.failed++
+        continue
+      }
 
-      if (existing) result.updated++
-      else result.created++
+      let existing = externalId
+        ? await prisma.customer.findUnique({ where: { externalId } })
+        : null
+      if (!existing && kode) {
+        existing = await prisma.customer.findUnique({ where: { kode } })
+      }
+
+      const data = {
+        nama,
+        alamat: str(c.alamat) || null,
+        telepon: str(c.telepon) || null,
+        aktif: normalizeBool(c.aktif, true),
+        source: 'erp',
+        syncedAt: new Date(),
+        deletedAt: null,
+      }
+
+      if (existing) {
+        await prisma.customer.update({
+          where: { id: existing.id },
+          data: {
+            ...data,
+            externalId: externalId ?? existing.externalId,
+            kode: kode || existing.kode,
+          },
+        })
+        result.updated++
+      } else {
+        if (!kode) {
+          result.errors.push({ index: i, externalId: externalId ?? undefined, message: 'kode wajib untuk data baru' })
+          result.failed++
+          continue
+        }
+        await prisma.customer.create({
+          data: { ...data, kode, externalId },
+        })
+        result.created++
+      }
     } catch (e) {
-      result.errors.push({ index: i, kode: c.kode, message: (e as Error).message })
+      result.errors.push({
+        index: i,
+        kode: c.kode,
+        externalId: c.externalId,
+        message: (e as Error).message,
+      })
       result.failed++
     }
   }
 
-  return NextResponse.json({
-    success: result.failed === 0,
-    ...result,
-  })
+  return NextResponse.json({ success: result.failed === 0, ...result })
 }
 
-// GET: info endpoint
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: 401 })
-  }
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
 
-  const total = await prisma.customer.count()
+  const [active, softDeleted] = await Promise.all([
+    prisma.customer.count({ where: { deletedAt: null } }),
+    prisma.customer.count({ where: { NOT: { deletedAt: null } } }),
+  ])
 
   return NextResponse.json({
     endpoint: '/api/v1/customers',
-    methods: ['POST (upsert)'],
     authenticatedAs: auth.apiKey?.nama,
-    totalCustomers: total,
-    documentation: {
-      post: {
-        body: '{ customers: [{ kode, nama, alamat?, telepon?, aktif? }] }',
-        maxBatch: 500,
-        note: 'Upsert berdasarkan kode. Create kalau belum ada, update kalau sudah ada.',
-      },
+    totalActive: active,
+    totalSoftDeleted: softDeleted,
+    body: '{ customers: [{ externalId?, kode, nama, alamat?, telepon?, aktif?, deleted? }] }',
+    behavior: {
+      upsert: 'External ID diprioritaskan. Fallback ke kode.',
+      softDelete: 'Kirim { deleted: true } untuk soft delete.',
+      restore: 'Kirim ulang dengan deleted=false → auto-restore.',
+      idempotent: 'Aman di-retry.',
     },
   })
 }

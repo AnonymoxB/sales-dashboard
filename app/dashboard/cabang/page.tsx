@@ -24,15 +24,18 @@ export default async function CabangPage({
   const currentPage = Math.max(1, parseInt(params.page ?? '1') || 1)
   const q = (params.q ?? '').trim()
 
-  const where = q
-    ? {
-        OR: [
-          { kode: { contains: q, mode: 'insensitive' as const } },
-          { nama: { contains: q, mode: 'insensitive' as const } },
-          { wilayah: { contains: q, mode: 'insensitive' as const } },
-        ],
-      }
-    : {}
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          OR: [
+            { kode: { contains: q, mode: 'insensitive' as const } },
+            { nama: { contains: q, mode: 'insensitive' as const } },
+            { wilayah: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  }
 
   const [totalItems, data] = await Promise.all([
     prisma.cabang.count({ where }),
@@ -42,7 +45,9 @@ export default async function CabangPage({
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
-        _count: { select: { sales: true } },
+        _count: {
+          select: { sales: { where: { deletedAt: null } } },
+        },
       },
     }),
   ])

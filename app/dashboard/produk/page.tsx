@@ -9,22 +9,30 @@ export default async function ProdukPage() {
 
   const [merkList, jenisList, bahanList, partList] = await Promise.all([
     prisma.merk.findMany({
+      where: { deletedAt: null },
       orderBy: { kode: 'asc' },
-      include: { _count: { select: { bahan: true } } },
+      include: {
+        _count: { select: { bahan: { where: { deletedAt: null } } } },
+      },
     }),
     prisma.jenis.findMany({
+      where: { deletedAt: null },
       orderBy: { kode: 'asc' },
-      include: { _count: { select: { bahan: true } } },
+      include: {
+        _count: { select: { bahan: { where: { deletedAt: null } } } },
+      },
     }),
     prisma.bahan.findMany({
+      where: { deletedAt: null },
       orderBy: { kode: 'asc' },
       include: {
         merk: { select: { id: true, kode: true, nama: true } },
         jenis: { select: { id: true, kode: true, nama: true } },
-        _count: { select: { part: true } },
+        _count: { select: { part: { where: { deletedAt: null } } } },
       },
     }),
     prisma.part.findMany({
+      where: { deletedAt: null },
       orderBy: { kode: 'asc' },
       include: {
         bahan: {
@@ -34,7 +42,6 @@ export default async function ProdukPage() {
     }),
   ])
 
-  // Normalisasi: Decimal → number untuk partList
   const partListNormalized = partList.map((p) => ({
     id: p.id,
     kode: p.kode,

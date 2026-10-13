@@ -12,12 +12,14 @@ export default async function HutangPage() {
 
   const [fakturRaw, piutangRaw, listSales, listPartRaw] = await Promise.all([
     prisma.faktur.findMany({
+      where: { deletedAt: null },
       orderBy: [{ tanggal: 'desc' }, { id: 'desc' }],
       take: 100,
       include: {
         sales: { select: { nama: true } },
         cabang: { select: { nama: true } },
         hutang: {
+          where: { deletedAt: null },
           select: {
             id: true,
             totalBayar: true,
@@ -28,6 +30,7 @@ export default async function HutangPage() {
       },
     }),
     prisma.hutang.findMany({
+      where: { deletedAt: null },
       orderBy: [{ statusLunas: 'asc' }, { jatuhTempo: 'asc' }],
       take: 100,
       include: {
@@ -37,18 +40,18 @@ export default async function HutangPage() {
       },
     }),
     prisma.sales.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
       include: { cabang: { select: { nama: true } } },
     }),
     prisma.part.findMany({
-      where: { aktif: true },
+      where: { aktif: true, deletedAt: null },
       orderBy: { nama: 'asc' },
     }),
   ])
 
   const fakturList = fakturRaw.map((f) => {
-    const h = f.hutang[0] // relasi 1-to-many, ambil yang pertama
+    const h = f.hutang[0]
     return {
       id: f.id.toString(),
       nomorFaktur: f.nomorFaktur,

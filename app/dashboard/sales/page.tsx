@@ -26,6 +26,7 @@ export default async function SalesPage({
   const cabangParam = params.cabang ? parseInt(params.cabang) : undefined
 
   const where = {
+    deletedAt: null,
     ...(cabangParam ? { idCabang: cabangParam } : {}),
     ...(q
       ? {
@@ -47,7 +48,10 @@ export default async function SalesPage({
       take: PAGE_SIZE,
       include: { cabang: { select: { id: true, kode: true, nama: true } } },
     }),
-    prisma.cabang.findMany({ orderBy: { nama: 'asc' } }),
+    prisma.cabang.findMany({
+      where: { deletedAt: null },
+      orderBy: { nama: 'asc' },
+    }),
   ])
 
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
