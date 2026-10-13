@@ -12,6 +12,7 @@ import {
   Store,
   BarChart3,
   ArrowUpDown,
+  Key,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -47,6 +48,7 @@ const masterItems = [
   { title: 'Cabang', url: '/dashboard/cabang', icon: Store },
   { title: 'Produk', url: '/dashboard/produk', icon: Package },
   { title: 'Import/Export', url: '/dashboard/import-export', icon: ArrowUpDown },
+  { title: 'API Keys', url: '/dashboard/api-keys', icon: Key },
 ]
 
 export function AppSidebar({

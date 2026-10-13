@@ -277,6 +277,20 @@ enum StatusFaktur {
   JATUH_TEMPO
 }
 
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  nama       String                          // "ERP Odoo", "Mobile App"
+  keyHash    String    @unique @map("key_hash")  // sha256 dari API key
+  prefix     String                          // 8 karakter awal untuk display
+  aktif      Boolean   @default(true)
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@map("api_keys")
+}
+
 // ============================================
 // VIEWS (didefinisikan di Prisma, dibuat via SQL)
 // ============================================
@@ -347,3 +361,4 @@ view MvPenjualanHarian {
 
   @@map("mv_penjualan_harian")
 }
+
