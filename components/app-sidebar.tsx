@@ -81,7 +81,7 @@ export function AppSidebar({
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight">Sales Dashboard</span>
             <span className="text-xs text-muted-foreground leading-tight">
-              Jateng Pantura
+              Fuboru Indonesia
             </span>
           </div>
         </div>
