@@ -1,0 +1,102 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import prisma from '@/lib/prisma'
+import { cabangSchema, type CabangInput } from '@/lib/validations/cabang'
+
+export async function createCabang(input: CabangInput) {
+  const parsed = cabangSchema.safeParse(input)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  try {
+    await prisma.cabang.create({
+      data: {
+        kode: parsed.data.kode,
+        nama: parsed.data.nama,
+        wilayah: parsed.data.wilayah || null,
+        alamat: parsed.data.alamat || null,
+      },
+    })
+    revalidatePath('/dashboard/cabang')
+    return { success: true }
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string }
+    if (err.code === 'P2002') {
+      return { error: 'Kode cabang sudah digunakan' }
+    }
+    return { error: err.message ?? 'Gagal menyimpan cabang' }
+  }
+}
+
+export async function updateCabang(id: number, input: CabangInput) {
+  const parsed = cabangSchema.safeParse(input)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  try {
+    await prisma.cabang.update({
+      where: { id },
+      data: {
+        kode: parsed.data.kode,
+        nama: parsed.data.nama,
+        wilayah: parsed.data.wilayah || null,
+        alamat: parsed.data.alamat || null,
+      },
+    })
+    revalidatePath('/dashboard/cabang')
+    return { success: true }
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string }
+    if (err.code === 'P2002') {
+      return { error: 'Kode cabang sudah digunakan' }
+    }
+    return { error: err.message ?? 'Gagal mengubah cabang' }
+  }
+}
+
+export async function deleteCabang(id: number) {
+  try {
+    // Cek relasi
+    const cabang = await prisma.cabang.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            sales: true,
+            penjualan: true,
+            target: true,
+            hutang: true,
+            faktur: true,
+            users: true,
+          },
+        },
+      },
+    })
+
+    if (!cabang) return { error: 'Cabang tidak ditemukan' }
+
+    const totalRelasi =
+      cabang._count.sales +
+      cabang._count.penjualan +
+      cabang._count.target +
+      cabang._count.hutang +
+      cabang._count.faktur +
+      cabang._count.users
+
+    if (totalRelasi > 0) {
+      return {
+        error: `Cabang masih dipakai oleh ${totalRelasi} data terkait (sales/penjualan/target/hutang/faktur/user). Hapus data terkait terlebih dahulu.`,
+      }
+    }
+
+    await prisma.cabang.delete({ where: { id } })
+    revalidatePath('/dashboard/cabang')
+    return { success: true }
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    return { error: err.message ?? 'Gagal menghapus cabang' }
+  }
+}

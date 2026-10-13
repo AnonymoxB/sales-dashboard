@@ -1,0 +1,349 @@
+// ============================================
+// GENERATOR & DATASOURCE
+// ============================================
+generator client {
+  provider        = "prisma-client"
+  output          = "../app/generated/prisma"
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// AUTH & USER
+// ============================================
+model User {
+  id         String   @id @default(uuid())
+  supabaseId String   @unique @map("supabase_id")
+  email      String   @unique
+  nama       String?
+  role       Role     @default(SALES)
+  idCabang   Int?     @map("id_cabang")
+  cabang     Cabang?  @relation(fields: [idCabang], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES
+}
+
+// ============================================
+// DIMENSION TABLES
+// ============================================
+model Cabang {
+  id        Int      @id @default(autoincrement())
+  kode      String   @unique
+  nama      String
+  wilayah   String?
+  alamat    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sales     Sales[]
+  penjualan Penjualan[]
+  target    Target[]
+  hutang    Hutang[]
+  faktur    Faktur[]
+  users     User[]
+
+  @@index([wilayah])
+  @@map("cabang")
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  kode      String   @unique
+  nama      String
+  alamat    String?
+  telepon   String?
+  aktif     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  faktur    Faktur[]
+  penjualan  Penjualan[]
+
+  @@index([nama])
+  @@map("customer")
+}
+
+model Sales {
+  id        Int      @id @default(autoincrement())
+  kode      String   @unique
+  nama      String
+  idCabang  Int      @map("id_cabang")
+  cabang    Cabang   @relation(fields: [idCabang], references: [id])
+  telepon   String?
+  aktif     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  penjualan Penjualan[]
+  target    Target[]
+  hutang    Hutang[]
+  faktur    Faktur[]
+
+  @@index([idCabang])
+  @@map("sales")
+}
+
+model Merk {
+  id        Int      @id @default(autoincrement())
+  kode      String   @unique
+  nama      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bahan     Bahan[]
+
+  @@map("merk")
+}
+
+model Jenis {
+  id        Int      @id @default(autoincrement())
+  kode      String   @unique
+  nama      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bahan     Bahan[]
+
+  @@map("jenis")
+}
+
+model Bahan {
+  id        Int      @id @default(autoincrement())
+  kode      String   @unique
+  nama      String
+  idMerk    Int      @map("id_merk")
+  idJenis   Int      @map("id_jenis")
+  merk      Merk     @relation(fields: [idMerk], references: [id])
+  jenis     Jenis    @relation(fields: [idJenis], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  part      Part[]
+
+  @@index([idMerk])
+  @@index([idJenis])
+  @@map("bahan")
+}
+
+model Part {
+  id         Int      @id @default(autoincrement())
+  kode       String   @unique
+  nama       String
+  idBahan    Int      @map("id_bahan")
+  bahan      Bahan    @relation(fields: [idBahan], references: [id])
+  satuan     String   @default("PCS")
+  hargaJual  Decimal  @db.Decimal(15, 2) @map("harga_jual")
+  hargaBeli  Decimal? @db.Decimal(15, 2) @map("harga_beli")
+  aktif      Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  penjualan     Penjualan[]
+  detailFaktur  DetailFaktur[]
+
+  @@index([idBahan])
+  @@map("part")
+}
+
+// ============================================
+// FACT TABLES
+// ============================================
+model Penjualan {
+  id          BigInt   @id @default(autoincrement())
+  tanggal     DateTime @db.Date
+  idSales     Int      @map("id_sales")
+  idPart      Int      @map("id_part")
+  idCabang    Int      @map("id_cabang")
+  idCustomer  Int?     @map("id_customer")
+  qty         Int
+  bonus       Int      @default(0)
+  hargaSatuan Decimal  @db.Decimal(15, 2) @map("harga_satuan")
+  diskon      Decimal  @default(0) @db.Decimal(15, 2)
+  totalOmzet  Decimal  @db.Decimal(15, 2) @map("total_omzet")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sales       Sales    @relation(fields: [idSales], references: [id])
+  part        Part     @relation(fields: [idPart], references: [id])
+  cabang      Cabang   @relation(fields: [idCabang], references: [id])
+  customer    Customer? @relation(fields: [idCustomer], references: [id])
+
+  @@index([tanggal])
+  @@index([idSales])
+  @@index([idPart])
+  @@index([idCabang])
+  @@index([idCustomer])
+  @@index([tanggal, idCabang])
+  @@map("penjualan")
+}
+
+model Target {
+  id          Int      @id @default(autoincrement())
+  periode     DateTime @db.Date
+  idSales     Int      @map("id_sales")
+  idCabang    Int      @map("id_cabang")
+  targetOmzet Decimal  @db.Decimal(15, 2) @map("target_omzet")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sales       Sales    @relation(fields: [idSales], references: [id])
+  cabang      Cabang   @relation(fields: [idCabang], references: [id])
+
+  @@unique([periode, idSales])
+  @@index([periode])
+  @@index([idCabang])
+  @@map("target")
+}
+
+model Faktur {
+  id           BigInt       @id @default(autoincrement())
+  nomorFaktur  String       @unique @map("nomor_faktur")
+  tanggal      DateTime     @db.Date
+  jatuhTempo   DateTime     @db.Date @map("jatuh_tempo")
+  idSales      Int          @map("id_sales")
+  idCabang     Int          @map("id_cabang")
+  idCustomer   Int?         @map("id_customer")
+  subtotalDpp  Decimal      @default(0) @db.Decimal(15, 2) @map("subtotal_dpp")  // ← TAMBAH
+  ppn          Decimal      @default(0) @db.Decimal(15, 2) 
+  totalTagihan Decimal      @db.Decimal(15, 2) @map("total_tagihan")
+  status       StatusFaktur @default(BELUM_LUNAS)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  sales        Sales        @relation(fields: [idSales], references: [id])
+  cabang       Cabang       @relation(fields: [idCabang], references: [id])
+  customer     Customer?    @relation(fields: [idCustomer], references: [id])
+  detail       DetailFaktur[]
+  hutang       Hutang[]
+
+  @@index([tanggal])
+  @@index([status])
+  @@index([idSales])
+  @@index([idCustomer])
+  @@map("faktur")
+}
+
+model DetailFaktur {
+  id          BigInt  @id @default(autoincrement())
+  idFaktur    BigInt  @map("id_faktur")
+  idPart      Int     @map("id_part")
+  qty         Int
+  bonus       Int     @default(0)
+  hargaSatuan Decimal @db.Decimal(15, 2) @map("harga_satuan")
+  subtotal    Decimal @db.Decimal(15, 2)
+
+  faktur      Faktur  @relation(fields: [idFaktur], references: [id], onDelete: Cascade)
+  part        Part    @relation(fields: [idPart], references: [id])
+
+  @@index([idFaktur])
+  @@map("detail_faktur")
+}
+
+model Hutang {
+  id            BigInt   @id @default(autoincrement())
+  idFaktur      BigInt   @map("id_faktur")
+  idSales       Int      @map("id_sales")
+  idCabang      Int      @map("id_cabang")
+  tanggalFaktur DateTime @db.Date @map("tanggal_faktur")
+  jatuhTempo    DateTime @db.Date @map("jatuh_tempo")
+  totalHutang   Decimal  @db.Decimal(15, 2) @map("total_hutang")
+  totalBayar    Decimal  @default(0) @db.Decimal(15, 2) @map("total_bayar")
+  sisaHutang    Decimal  @db.Decimal(15, 2) @map("sisa_hutang")
+  statusLunas   Boolean  @default(false) @map("status_lunas")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  faktur        Faktur   @relation(fields: [idFaktur], references: [id])
+  sales         Sales    @relation(fields: [idSales], references: [id])
+  cabang        Cabang   @relation(fields: [idCabang], references: [id])
+
+  @@index([idSales])
+  @@index([statusLunas])
+  @@index([jatuhTempo])
+  @@map("hutang")
+}
+
+enum StatusFaktur {
+  BELUM_LUNAS
+  LUNAS
+  JATUH_TEMPO
+}
+
+// ============================================
+// VIEWS (didefinisikan di Prisma, dibuat via SQL)
+// ============================================
+view MvPencapaianSales {
+  idSales      Int      @map("id_sales")
+  namaSales    String   @map("nama_sales")
+  namaCabang   String   @map("nama_cabang")
+  periode      DateTime
+  totalOmzet   Decimal  @map("total_omzet")
+  targetOmzet  Decimal  @map("target_omzet")
+  persentase   Float
+  jumlahFaktur BigInt   @map("jumlah_faktur")
+
+  @@map("mv_pencapaian_sales")
+}
+
+view MvPencapaianMerk {
+  idMerk     Int      @map("id_merk")
+  namaMerk   String   @map("nama_merk")
+  periode    DateTime
+  totalOmzet Decimal  @map("total_omzet")
+  totalQty   BigInt   @map("total_qty")
+
+  @@map("mv_pencapaian_merk")
+}
+
+view MvPencapaianBahan {
+  idBahan    Int      @map("id_bahan")
+  namaBahan  String   @map("nama_bahan")
+  namaMerk   String   @map("nama_merk")
+  namaJenis  String   @map("nama_jenis")
+  periode    DateTime
+  totalOmzet Decimal  @map("total_omzet")
+  totalQty   BigInt   @map("total_qty")
+
+  @@map("mv_pencapaian_bahan")
+}
+
+view MvPencapaianPart {
+  idPart     Int      @map("id_part")
+  namaPart   String   @map("nama_part")
+  namaBahan  String   @map("nama_bahan")
+  periode    DateTime
+  totalOmzet Decimal  @map("total_omzet")
+  totalQty   BigInt   @map("total_qty")
+
+  @@map("mv_pencapaian_part")
+}
+
+view MvHutangBarang {
+  idSales      Int     @map("id_sales")
+  namaSales    String  @map("nama_sales")
+  namaCabang   String  @map("nama_cabang")
+  totalHutang  Decimal @map("total_hutang")
+  totalBayar   Decimal @map("total_bayar")
+  sisaHutang   Decimal @map("sisa_hutang")
+  jumlahFaktur BigInt  @map("jumlah_faktur")
+
+  @@map("mv_hutang_barang")
+}
+
+view MvPenjualanHarian {
+  tanggal         DateTime @db.Date
+  namaCabang      String   @map("nama_cabang")
+  totalOmzet      Decimal  @map("total_omzet")
+  totalQty        BigInt   @map("total_qty")
+  jumlahTransaksi BigInt   @map("jumlah_transaksi")
+
+  @@map("mv_penjualan_harian")
+}
