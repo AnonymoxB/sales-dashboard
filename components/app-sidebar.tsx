@@ -15,6 +15,7 @@ import {
   Key,
   Building2,
   Trash2,
+  Activity,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -52,6 +53,7 @@ const masterItems = [
   { title: 'Produk', url: '/dashboard/produk', icon: Package },
   { title: 'Import/Export', url: '/dashboard/import-export', icon: ArrowUpDown },
   { title: 'API Keys', url: '/dashboard/api-keys', icon: Key },
+  { title: 'API Logs', url: '/dashboard/api-keys/logs', icon: Activity },
   { title: 'Trash', url: '/dashboard/trash', icon: Trash2 },
 ]
 

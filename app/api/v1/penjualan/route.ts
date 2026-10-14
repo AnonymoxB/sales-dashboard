@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKey } from '@/lib/api-auth'
+import { logApiCall } from '@/lib/api-logger'
+import { getRateLimitHeaders } from '@/lib/api-rate-limit'
 import prisma from '@/lib/prisma'
 import { emptyResult, extractArray, num, str } from '@/lib/api-upsert'
 
@@ -16,12 +18,34 @@ type Input = {
   deleted?: boolean
 }
 
+const ENDPOINT = '/api/v1/penjualan'
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+
+  if (!auth.ok) {
+    await logApiCall({
+      apiKeyId: auth.apiKey?.id,
+      apiKeyName: auth.apiKey?.nama,
+      endpoint: ENDPOINT,
+      method: 'POST',
+      statusCode: auth.statusCode ?? 401,
+      durationMs: Date.now() - startTime,
+      ipAddress: auth.ip,
+      userAgent: auth.userAgent,
+      errorMsg: auth.error,
+    })
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+    )
+  }
 
   let body: unknown
-  try { body = await request.json() } catch {
+  try {
+    body = await request.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -45,33 +69,62 @@ export async function POST(request: NextRequest) {
     try {
       const externalId = p.externalId ? str(p.externalId) : null
 
-      // SOFT DELETE
       if (p.deleted === true) {
-        if (!externalId) { result.errors.push({ index: i, message: 'externalId wajib untuk delete' }); result.failed++; continue }
+        if (!externalId) {
+          result.errors.push({ index: i, message: 'externalId wajib untuk delete' })
+          result.failed++
+          continue
+        }
         const found = await prisma.penjualan.findUnique({ where: { externalId } })
-        if (!found) { result.errors.push({ index: i, externalId, message: 'Tidak ditemukan' }); result.failed++; continue }
-        if (found.deletedAt) { result.skipped++; continue }
-        await prisma.penjualan.update({ where: { id: found.id }, data: { deletedAt: new Date(), syncedAt: new Date() } })
-        result.deleted++; continue
+        if (!found) {
+          result.errors.push({ index: i, externalId, message: 'Tidak ditemukan' })
+          result.failed++
+          continue
+        }
+        if (found.deletedAt) {
+          result.skipped++
+          continue
+        }
+        await prisma.penjualan.update({
+          where: { id: found.id },
+          data: { deletedAt: new Date(), syncedAt: new Date() },
+        })
+        result.deleted++
+        continue
       }
 
-      // UPSERT
       const tanggal = new Date(str(p.tanggal))
       const kodeSales = str(p.kodeSales)
       const kodePart = str(p.kodePart)
       const kodeCustomer = str(p.kodeCustomer)
-      if (isNaN(tanggal.getTime())) { result.errors.push({ index: i, message: 'tanggal tidak valid' }); result.failed++; continue }
+      if (isNaN(tanggal.getTime())) {
+        result.errors.push({ index: i, message: 'tanggal tidak valid' })
+        result.failed++
+        continue
+      }
       const s = salesMap.get(kodeSales)
-      if (!s) { result.errors.push({ index: i, message: `Sales "${kodeSales}" tidak ditemukan` }); result.failed++; continue }
+      if (!s) {
+        result.errors.push({ index: i, message: `Sales "${kodeSales}" tidak ditemukan` })
+        result.failed++
+        continue
+      }
       const idPart = partMap.get(kodePart)
-      if (!idPart) { result.errors.push({ index: i, message: `Part "${kodePart}" tidak ditemukan` }); result.failed++; continue }
+      if (!idPart) {
+        result.errors.push({ index: i, message: `Part "${kodePart}" tidak ditemukan` })
+        result.failed++
+        continue
+      }
       const idCustomer = kodeCustomer ? (custMap.get(kodeCustomer) ?? null) : null
 
       const qty = num(p.qty)
       const hargaSatuan = num(p.hargaSatuan)
       const diskon = num(p.diskon)
       const bonus = num(p.bonus)
-      if (qty <= 0) { result.errors.push({ index: i, message: 'qty harus > 0' }); result.failed++; continue }
+      if (qty <= 0) {
+        result.errors.push({ index: i, message: 'qty harus > 0' })
+        result.failed++
+        continue
+      }
 
       const data = {
         tanggal,
@@ -99,31 +152,54 @@ export async function POST(request: NextRequest) {
         await prisma.penjualan.create({ data: { ...data, externalId } })
         result.created++
       } else {
-        // Tidak ada externalId → always insert (tidak bisa upsert)
         await prisma.penjualan.create({ data })
         result.created++
       }
     } catch (e) {
-      result.errors.push({ index: i, externalId: p.externalId, message: (e as Error).message }); result.failed++
+      result.errors.push({ index: i, externalId: p.externalId, message: (e as Error).message })
+      result.failed++
     }
   }
 
-  return NextResponse.json({ success: result.failed === 0, ...result })
+  await logApiCall({
+    apiKeyId: auth.apiKey!.id,
+    apiKeyName: auth.apiKey!.nama,
+    endpoint: ENDPOINT,
+    method: 'POST',
+    statusCode: 200,
+    result,
+    durationMs: Date.now() - startTime,
+    ipAddress: auth.ip,
+    userAgent: auth.userAgent,
+  })
+
+  return NextResponse.json(
+    { success: result.failed === 0, ...result },
+    { headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+  )
 }
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+    )
+  }
   const [active, soft] = await Promise.all([
     prisma.penjualan.count({ where: { deletedAt: null } }),
     prisma.penjualan.count({ where: { NOT: { deletedAt: null } } }),
   ])
-  return NextResponse.json({
-    endpoint: '/api/v1/penjualan',
-    authenticatedAs: auth.apiKey?.nama,
-    totalActive: active,
-    totalSoftDeleted: soft,
-    body: '{ penjualan: [{ externalId?, tanggal, kodeSales, kodePart, kodeCustomer?, qty, bonus?, hargaSatuan, diskon?, deleted? }] }',
-    note: 'externalId sangat disarankan untuk idempotency. Tanpa externalId, selalu INSERT.',
-  })
+  return NextResponse.json(
+    {
+      endpoint: ENDPOINT,
+      authenticatedAs: auth.apiKey?.nama,
+      totalActive: active,
+      totalSoftDeleted: soft,
+      body: '{ penjualan: [{ externalId?, tanggal, kodeSales, kodePart, kodeCustomer?, qty, bonus?, hargaSatuan, diskon?, deleted? }] }',
+      note: 'externalId sangat disarankan untuk idempotency. Tanpa externalId, selalu INSERT.',
+    },
+    { headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+  )
 }

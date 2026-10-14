@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKey } from '@/lib/api-auth'
+import { logApiCall } from '@/lib/api-logger'
+import { getRateLimitHeaders } from '@/lib/api-rate-limit'
 import prisma from '@/lib/prisma'
 import { emptyResult, extractArray, str } from '@/lib/api-upsert'
 
@@ -12,12 +14,34 @@ type Input = {
   deleted?: boolean
 }
 
+const ENDPOINT = '/api/v1/bahan'
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+
+  if (!auth.ok) {
+    await logApiCall({
+      apiKeyId: auth.apiKey?.id,
+      apiKeyName: auth.apiKey?.nama,
+      endpoint: ENDPOINT,
+      method: 'POST',
+      statusCode: auth.statusCode ?? 401,
+      durationMs: Date.now() - startTime,
+      ipAddress: auth.ip,
+      userAgent: auth.userAgent,
+      errorMsg: auth.error,
+    })
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+    )
+  }
 
   let body: unknown
-  try { body = await request.json() } catch {
+  try {
+    body = await request.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -38,59 +62,130 @@ export async function POST(request: NextRequest) {
     try {
       const externalId = b.externalId ? str(b.externalId) : null
       const kode = str(b.kode)
-      if (!externalId && !kode) { result.errors.push({ index: i, message: 'externalId atau kode wajib' }); result.failed++; continue }
+      if (!externalId && !kode) {
+        result.errors.push({ index: i, message: 'externalId atau kode wajib' })
+        result.failed++
+        continue
+      }
 
       if (b.deleted === true) {
         const where = externalId ? { externalId } : { kode }
         const found = await prisma.bahan.findUnique({ where })
-        if (!found) { result.errors.push({ index: i, kode, message: 'Tidak ditemukan' }); result.failed++; continue }
-        if (found.deletedAt) { result.skipped++; continue }
-        await prisma.bahan.update({ where: { id: found.id }, data: { deletedAt: new Date(), syncedAt: new Date() } })
-        result.deleted++; continue
+        if (!found) {
+          result.errors.push({ index: i, kode, message: 'Tidak ditemukan' })
+          result.failed++
+          continue
+        }
+        if (found.deletedAt) {
+          result.skipped++
+          continue
+        }
+        await prisma.bahan.update({
+          where: { id: found.id },
+          data: { deletedAt: new Date(), syncedAt: new Date() },
+        })
+        result.deleted++
+        continue
       }
 
       const nama = str(b.nama)
       const kodeMerk = str(b.kodeMerk)
       const kodeJenis = str(b.kodeJenis)
-      if (!nama || !kodeMerk || !kodeJenis) { result.errors.push({ index: i, kode, message: 'nama, kodeMerk, kodeJenis wajib' }); result.failed++; continue }
+      if (!nama || !kodeMerk || !kodeJenis) {
+        result.errors.push({ index: i, kode, message: 'nama, kodeMerk, kodeJenis wajib' })
+        result.failed++
+        continue
+      }
       const idMerk = merkMap.get(kodeMerk)
-      if (!idMerk) { result.errors.push({ index: i, kode, message: `Merk "${kodeMerk}" tidak ditemukan` }); result.failed++; continue }
+      if (!idMerk) {
+        result.errors.push({ index: i, kode, message: `Merk "${kodeMerk}" tidak ditemukan` })
+        result.failed++
+        continue
+      }
       const idJenis = jenisMap.get(kodeJenis)
-      if (!idJenis) { result.errors.push({ index: i, kode, message: `Jenis "${kodeJenis}" tidak ditemukan` }); result.failed++; continue }
+      if (!idJenis) {
+        result.errors.push({ index: i, kode, message: `Jenis "${kodeJenis}" tidak ditemukan` })
+        result.failed++
+        continue
+      }
 
-      let existing = externalId ? await prisma.bahan.findUnique({ where: { externalId } }) : null
+      let existing = externalId
+        ? await prisma.bahan.findUnique({ where: { externalId } })
+        : null
       if (!existing && kode) existing = await prisma.bahan.findUnique({ where: { kode } })
 
-      const data = { nama, idMerk, idJenis, source: 'erp', syncedAt: new Date(), deletedAt: null }
+      const data = {
+        nama,
+        idMerk,
+        idJenis,
+        source: 'erp',
+        syncedAt: new Date(),
+        deletedAt: null,
+      }
 
       if (existing) {
-        await prisma.bahan.update({ where: { id: existing.id }, data: { ...data, externalId: externalId ?? existing.externalId, kode: kode || existing.kode } })
+        await prisma.bahan.update({
+          where: { id: existing.id },
+          data: {
+            ...data,
+            externalId: externalId ?? existing.externalId,
+            kode: kode || existing.kode,
+          },
+        })
         result.updated++
       } else {
-        if (!kode) { result.errors.push({ index: i, message: 'kode wajib untuk data baru' }); result.failed++; continue }
+        if (!kode) {
+          result.errors.push({ index: i, message: 'kode wajib untuk data baru' })
+          result.failed++
+          continue
+        }
         await prisma.bahan.create({ data: { ...data, kode, externalId } })
         result.created++
       }
     } catch (e) {
-      result.errors.push({ index: i, kode: b.kode, externalId: b.externalId, message: (e as Error).message }); result.failed++
+      result.errors.push({ index: i, kode: b.kode, externalId: b.externalId, message: (e as Error).message })
+      result.failed++
     }
   }
 
-  return NextResponse.json({ success: result.failed === 0, ...result })
+  await logApiCall({
+    apiKeyId: auth.apiKey!.id,
+    apiKeyName: auth.apiKey!.nama,
+    endpoint: ENDPOINT,
+    method: 'POST',
+    statusCode: 200,
+    result,
+    durationMs: Date.now() - startTime,
+    ipAddress: auth.ip,
+    userAgent: auth.userAgent,
+  })
+
+  return NextResponse.json(
+    { success: result.failed === 0, ...result },
+    { headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+  )
 }
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+    )
+  }
   const [active, soft] = await Promise.all([
     prisma.bahan.count({ where: { deletedAt: null } }),
     prisma.bahan.count({ where: { NOT: { deletedAt: null } } }),
   ])
-  return NextResponse.json({
-    endpoint: '/api/v1/bahan',
-    authenticatedAs: auth.apiKey?.nama,
-    totalActive: active,
-    totalSoftDeleted: soft,
-    body: '{ bahan: [{ externalId?, kode, nama, kodeMerk, kodeJenis, deleted? }] }',
-  })
+  return NextResponse.json(
+    {
+      endpoint: ENDPOINT,
+      authenticatedAs: auth.apiKey?.nama,
+      totalActive: active,
+      totalSoftDeleted: soft,
+      body: '{ bahan: [{ externalId?, kode, nama, kodeMerk, kodeJenis, deleted? }] }',
+    },
+    { headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+  )
 }

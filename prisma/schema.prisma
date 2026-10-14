@@ -348,6 +348,46 @@ model ApiKey {
   @@map("api_keys")
 }
 
+model ApiLog {
+  id          BigInt   @id @default(autoincrement())
+  idApiKey    Int?     @map("id_api_key")
+  apiKeyName  String?  @map("api_key_name")
+  endpoint    String
+  method      String
+  statusCode  Int      @map("status_code")
+  created     Int      @default(0)
+  updated     Int      @default(0)
+  deleted     Int      @default(0)
+  skipped     Int      @default(0)
+  failed      Int      @default(0)
+  durationMs  Int      @map("duration_ms")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  errorMsg    String?  @map("error_msg")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([idApiKey])
+  @@index([endpoint])
+  @@index([createdAt])
+  @@map("api_logs")
+}
+
+model Webhook {
+  id          Int       @id @default(autoincrement())
+  nama        String
+  url         String
+  secret      String?
+  events      String[]  // ["customer.created", "customer.updated", ...]
+  aktif       Boolean   @default(true)
+  lastFiredAt DateTime? @map("last_fired_at")
+  lastStatus  Int?      @map("last_status")
+  failCount   Int       @default(0) @map("fail_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("webhooks")
+}
+
 // ============================================
 // VIEWS
 // ============================================

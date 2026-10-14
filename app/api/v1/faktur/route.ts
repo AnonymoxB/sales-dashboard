@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKey } from '@/lib/api-auth'
+import { logApiCall } from '@/lib/api-logger'
+import { getRateLimitHeaders } from '@/lib/api-rate-limit'
 import prisma from '@/lib/prisma'
 import { emptyResult, extractArray, num, str } from '@/lib/api-upsert'
 
@@ -17,12 +19,34 @@ type Input = {
   deleted?: boolean
 }
 
+const ENDPOINT = '/api/v1/faktur'
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+
+  if (!auth.ok) {
+    await logApiCall({
+      apiKeyId: auth.apiKey?.id,
+      apiKeyName: auth.apiKey?.nama,
+      endpoint: ENDPOINT,
+      method: 'POST',
+      statusCode: auth.statusCode ?? 401,
+      durationMs: Date.now() - startTime,
+      ipAddress: auth.ip,
+      userAgent: auth.userAgent,
+      errorMsg: auth.error,
+    })
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+    )
+  }
 
   let body: unknown
-  try { body = await request.json() } catch {
+  try {
+    body = await request.json()
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -38,7 +62,6 @@ export async function POST(request: NextRequest) {
   const partMap = new Map(parts.map((p) => [p.kode, p.id]))
   const custMap = new Map(customers.map((c) => [c.kode, c.id]))
 
-  // Group by nomorFaktur (atau externalId kalau nomorFaktur kosong)
   const groups = new Map<string, {
     externalId: string | null
     nomorFaktur: string
@@ -57,15 +80,31 @@ export async function POST(request: NextRequest) {
       const externalId = r.externalId ? str(r.externalId) : null
       const nomorFaktur = str(r.nomorFaktur)
       const key = nomorFaktur || externalId || ''
-      if (!key) { result.errors.push({ index: i, message: 'nomorFaktur atau externalId wajib' }); result.failed++; continue }
+      if (!key) {
+        result.errors.push({ index: i, message: 'nomorFaktur atau externalId wajib' })
+        result.failed++
+        continue
+      }
 
-      // Delete whole faktur by nomorFaktur
       if (r.deleted === true) {
         const found = await prisma.faktur.findUnique({ where: { nomorFaktur: key } })
-        if (!found) { result.errors.push({ index: i, nomorFaktur: key, message: 'Tidak ditemukan' }); result.failed++; continue }
-        if (found.deletedAt) { result.skipped++; continue }
-        await prisma.faktur.update({ where: { id: found.id }, data: { deletedAt: new Date(), syncedAt: new Date() } })
-        await prisma.hutang.updateMany({ where: { idFaktur: found.id }, data: { deletedAt: new Date() } })
+        if (!found) {
+          result.errors.push({ index: i, nomorFaktur: key, message: 'Tidak ditemukan' })
+          result.failed++
+          continue
+        }
+        if (found.deletedAt) {
+          result.skipped++
+          continue
+        }
+        await prisma.faktur.update({
+          where: { id: found.id },
+          data: { deletedAt: new Date(), syncedAt: new Date() },
+        })
+        await prisma.hutang.updateMany({
+          where: { idFaktur: found.id },
+          data: { deletedAt: new Date() },
+        })
         result.deleted++
         continue
       }
@@ -75,25 +114,49 @@ export async function POST(request: NextRequest) {
       const kodeSales = str(r.kodeSales)
       const kodeCustomer = str(r.kodeCustomer)
       const kodePart = str(r.kodePart)
-      if (isNaN(tanggal.getTime()) || isNaN(jatuhTempo.getTime())) { result.errors.push({ index: i, nomorFaktur: key, message: 'tanggal/jatuhTempo invalid' }); result.failed++; continue }
-      if (!salesMap.has(kodeSales)) { result.errors.push({ index: i, nomorFaktur: key, message: `Sales "${kodeSales}" tidak ada` }); result.failed++; continue }
+      if (isNaN(tanggal.getTime()) || isNaN(jatuhTempo.getTime())) {
+        result.errors.push({ index: i, nomorFaktur: key, message: 'tanggal/jatuhTempo invalid' })
+        result.failed++
+        continue
+      }
+      if (!salesMap.has(kodeSales)) {
+        result.errors.push({ index: i, nomorFaktur: key, message: `Sales "${kodeSales}" tidak ada` })
+        result.failed++
+        continue
+      }
       const idPart = partMap.get(kodePart)
-      if (!idPart) { result.errors.push({ index: i, nomorFaktur: key, message: `Part "${kodePart}" tidak ada` }); result.failed++; continue }
+      if (!idPart) {
+        result.errors.push({ index: i, nomorFaktur: key, message: `Part "${kodePart}" tidak ada` })
+        result.failed++
+        continue
+      }
 
       if (!groups.has(key)) {
-        groups.set(key, { externalId, nomorFaktur: key, tanggal, jatuhTempo, kodeSales, kodeCustomer, items: [] })
+        groups.set(key, {
+          externalId,
+          nomorFaktur: key,
+          tanggal,
+          jatuhTempo,
+          kodeSales,
+          kodeCustomer,
+          items: [],
+        })
       }
       const qty = num(r.qty)
       const hargaSatuan = num(r.hargaSatuan)
       groups.get(key)!.items.push({
-        idPart, qty, bonus: num(r.bonus), hargaSatuan, subtotal: qty * hargaSatuan,
+        idPart,
+        qty,
+        bonus: num(r.bonus),
+        hargaSatuan,
+        subtotal: qty * hargaSatuan,
       })
     } catch (e) {
-      result.errors.push({ index: i, message: (e as Error).message }); result.failed++
+      result.errors.push({ index: i, message: (e as Error).message })
+      result.failed++
     }
   }
 
-  // Process each faktur group
   for (const [key, group] of groups) {
     try {
       const s = salesMap.get(group.kodeSales)!
@@ -106,7 +169,6 @@ export async function POST(request: NextRequest) {
       const existing = await prisma.faktur.findUnique({ where: { nomorFaktur: key } })
 
       if (existing) {
-        // Update + recreate detail
         await prisma.$transaction(async (tx) => {
           await tx.detailFaktur.deleteMany({ where: { idFaktur: existing.id } })
           await tx.faktur.update({
@@ -128,7 +190,6 @@ export async function POST(request: NextRequest) {
               detail: { create: group.items },
             },
           })
-          // Update hutang
           await tx.hutang.updateMany({
             where: { idFaktur: existing.id },
             data: {
@@ -136,7 +197,6 @@ export async function POST(request: NextRequest) {
               sisaHutang: totalTagihan,
               jatuhTempo: group.jatuhTempo,
               deletedAt: null,
-              syncedAt: new Date(),
             },
           })
         })
@@ -171,31 +231,57 @@ export async function POST(request: NextRequest) {
             totalBayar: 0,
             sisaHutang: totalTagihan,
             statusLunas: false,
+            source: 'erp',
+            syncedAt: new Date(),
           },
         })
         result.created++
       }
     } catch (e) {
-      result.errors.push({ index: 0, nomorFaktur: key, message: (e as Error).message }); result.failed++
+      result.errors.push({ index: 0, nomorFaktur: key, message: (e as Error).message })
+      result.failed++
     }
   }
 
-  return NextResponse.json({ success: result.failed === 0, ...result })
+  await logApiCall({
+    apiKeyId: auth.apiKey!.id,
+    apiKeyName: auth.apiKey!.nama,
+    endpoint: ENDPOINT,
+    method: 'POST',
+    statusCode: 200,
+    result,
+    durationMs: Date.now() - startTime,
+    ipAddress: auth.ip,
+    userAgent: auth.userAgent,
+  })
+
+  return NextResponse.json(
+    { success: result.failed === 0, ...result },
+    { headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+  )
 }
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request)
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+    )
+  }
   const [active, soft] = await Promise.all([
     prisma.faktur.count({ where: { deletedAt: null } }),
     prisma.faktur.count({ where: { NOT: { deletedAt: null } } }),
   ])
-  return NextResponse.json({
-    endpoint: '/api/v1/faktur',
-    authenticatedAs: auth.apiKey?.nama,
-    totalActive: active,
-    totalSoftDeleted: soft,
-    body: '{ faktur: [{ externalId?, nomorFaktur, tanggal, jatuhTempo, kodeSales, kodeCustomer?, kodePart, qty, bonus?, hargaSatuan, deleted? }] }',
-    note: 'Kirim per-item. Baris dengan nomorFaktur sama → digabung. PPN 11% otomatis.',
-  })
+  return NextResponse.json(
+    {
+      endpoint: ENDPOINT,
+      authenticatedAs: auth.apiKey?.nama,
+      totalActive: active,
+      totalSoftDeleted: soft,
+      body: '{ faktur: [{ externalId?, nomorFaktur, tanggal, jatuhTempo, kodeSales, kodeCustomer?, kodePart, qty, bonus?, hargaSatuan, deleted? }] }',
+      note: 'Kirim per-item. Baris dengan nomorFaktur sama → digabung. PPN 11% otomatis.',
+    },
+    { headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+  )
 }
