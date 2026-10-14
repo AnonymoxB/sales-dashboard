@@ -15,16 +15,23 @@ datasource db {
 // AUTH & USER
 // ============================================
 model User {
-  id         String   @id @default(uuid())
-  supabaseId String   @unique @map("supabase_id")
-  email      String   @unique
-  nama       String?
-  role       Role     @default(SALES)
-  idCabang   Int?     @map("id_cabang")
-  cabang     Cabang?  @relation(fields: [idCabang], references: [id])
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id           String      @id @default(uuid())
+  supabaseId   String      @unique @map("supabase_id")
+  email        String      @unique
+  nama         String?
+  role         Role        @default(SALES)
+  status       UserStatus  @default(PENDING)
+  idCabang     Int?        @map("id_cabang")
+  cabang       Cabang?     @relation(fields: [idCabang], references: [id])
+  approvedAt   DateTime?   @map("approved_at")
+  approvedBy   String?     @map("approved_by")
+  rejectedAt   DateTime?   @map("rejected_at")
+  rejectedBy   String?     @map("rejected_by")
+  rejectReason String?     @map("reject_reason")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
+  @@index([status])
   @@map("users")
 }
 
@@ -32,6 +39,12 @@ enum Role {
   ADMIN
   MANAGER
   SALES
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // ============================================

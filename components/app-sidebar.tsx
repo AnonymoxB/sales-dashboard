@@ -16,6 +16,7 @@ import {
   Building2,
   Trash2,
   Activity,
+  UserCog,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -55,6 +56,10 @@ const masterItems = [
   { title: 'API Keys', url: '/dashboard/api-keys', icon: Key },
   { title: 'API Logs', url: '/dashboard/api-keys/logs', icon: Activity },
   { title: 'Trash', url: '/dashboard/trash', icon: Trash2 },
+]
+
+const adminItems = [
+  { title: 'Users', url: '/dashboard/users', icon: UserCog },
 ]
 
 export function AppSidebar({
@@ -133,6 +138,28 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* ← TAMBAH group Admin */}
+        {user.role === 'ADMIN' && (
+            <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+                <SidebarMenu>
+                {adminItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                        isActive={pathname === item.url}
+                        onClick={() => router.push(item.url)}
+                    >
+                        <item.icon />
+                        <span>{item.title}</span>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                ))}
+                </SidebarMenu>
+            </SidebarGroupContent>
+            </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

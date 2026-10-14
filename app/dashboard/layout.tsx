@@ -27,16 +27,30 @@ export default async function DashboardLayout({
     where: { supabaseId: user.id },
   })
 
+  // Cek status user
+  if (!dbUser) {
+    // User ada di auth tapi tidak di public.users — trigger belum jalan
+    redirect('/pending?reason=not-synced')
+  }
+
+  if (dbUser.status === 'PENDING') {
+    redirect('/pending?reason=pending')
+  }
+
+  if (dbUser.status === 'REJECTED') {
+    redirect(`/pending?reason=rejected`)
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar
         user={{
           email: user.email ?? '',
-          nama: dbUser?.nama ?? user.email ?? '',
-          role: dbUser?.role ?? 'SALES',
+          nama: dbUser.nama ?? user.email ?? '',
+          role: dbUser.role,
         }}
       />
-      <SidebarInset className="min-w-0 overflow-hidden">
+      <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
