@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MoreHorizontal, CheckCircle2, XCircle, Trash2, Loader2,
-  Shield, ShieldCheck, User as UserIcon, Building2,
+  Shield, ShieldCheck, User as UserIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -15,16 +15,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import {
   approveUser, rejectUser, changeUserRole, deleteUser,
 } from '@/lib/actions/users'
@@ -236,7 +232,7 @@ export function UsersTable({
                               <XCircle className="mr-2 h-4 w-4" />
                               Reject
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            <div className="my-1 h-px bg-border" />
                           </>
                         )}
 
@@ -252,13 +248,13 @@ export function UsersTable({
                               <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
                               Approve ulang
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            <div className="my-1 h-px bg-border" />
                           </>
                         )}
 
-                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                           Ubah Role
-                        </DropdownMenuLabel>
+                        </div>
                         <DropdownMenuItem
                           onClick={(e) => { e.preventDefault(); handleChangeRole(u, 'ADMIN') }}
                           disabled={isPending || u.role === 'ADMIN' || u.isMe}
@@ -281,7 +277,7 @@ export function UsersTable({
                           Sales
                         </DropdownMenuItem>
 
-                        <DropdownMenuSeparator />
+                        <div className="my-1 h-px bg-border" />
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.preventDefault()
@@ -310,7 +306,6 @@ export function UsersTable({
             <DialogTitle>Tolak user?</DialogTitle>
             <DialogDescription>
               User <strong>{rejectTarget?.nama || rejectTarget?.email}</strong> akan ditolak.
-              Mereka tidak bisa mengakses dashboard.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -351,7 +346,6 @@ export function UsersTable({
             <DialogTitle>Hapus user?</DialogTitle>
             <DialogDescription>
               User <strong>{deleteTarget?.email}</strong> akan dihapus dari database.
-              User Supabase Auth-nya tetap ada, tapi tidak bisa akses dashboard.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
