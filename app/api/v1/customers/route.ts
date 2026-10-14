@@ -153,11 +153,27 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   const auth = await authenticateApiKey(request)
+
   if (!auth.ok) {
+    await logApiCall({
+      apiKeyId: auth.apiKey?.id,
+      apiKeyName: auth.apiKey?.nama,
+      endpoint: ENDPOINT,
+      method: 'GET',
+      statusCode: auth.statusCode ?? 401,
+      durationMs: Date.now() - startTime,
+      ipAddress: auth.ip,
+      userAgent: auth.userAgent,
+      errorMsg: auth.error,
+    })
     return NextResponse.json(
       { error: auth.error },
-      { status: auth.statusCode ?? 401, headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {} }
+      {
+        status: auth.statusCode ?? 401,
+        headers: auth.rateLimit ? getRateLimitHeaders(auth.rateLimit) : {},
+      }
     )
   }
 
@@ -165,6 +181,17 @@ export async function GET(request: NextRequest) {
     prisma.customer.count({ where: { deletedAt: null } }),
     prisma.customer.count({ where: { NOT: { deletedAt: null } } }),
   ])
+
+  await logApiCall({
+    apiKeyId: auth.apiKey!.id,
+    apiKeyName: auth.apiKey!.nama,
+    endpoint: ENDPOINT,
+    method: 'GET',
+    statusCode: 200,
+    durationMs: Date.now() - startTime,
+    ipAddress: auth.ip,
+    userAgent: auth.userAgent,
+  })
 
   return NextResponse.json(
     {
