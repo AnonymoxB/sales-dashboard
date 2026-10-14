@@ -1,6 +1,7 @@
 import { connection } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import prisma from '@/lib/prisma'
 import { getDashboard1Data, type Dashboard2Filters } from '@/lib/dashboard-queries'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { FilterBar } from '@/components/dashboard/filter-bar'
@@ -34,11 +35,22 @@ export default async function DashboardPage({
   searchParams: SearchParams
 }) {
   await connection()
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const dbUser = await prisma.user.findUnique({
+    where: { supabaseId: user.id },
+    select: { id: true, role: true, status: true, idCabang: true },
+  })
+  if (!dbUser || dbUser.status !== 'APPROVED') redirect('/login')
+
   const params = await searchParams
+
+  // 🛡️ Cabang lock: ADMIN bebas, role lain terkunci ke cabang sendiri
+  const isAdmin = dbUser.role === 'ADMIN'
+  const lockedCabangId = !isAdmin && dbUser.idCabang ? dbUser.idCabang : null
 
   const filters: Dashboard2Filters = {
     tahun: params.tahun ? parseInt(params.tahun) : undefined,
@@ -48,12 +60,28 @@ export default async function DashboardPage({
     idBahan: params.idBahan ? parseInt(params.idBahan) : undefined,
     idJenis: params.idJenis ? parseInt(params.idJenis) : undefined,
     idPart: params.idPart ? parseInt(params.idPart) : undefined,
-    idCabang: params.cabang ? parseInt(params.cabang) : undefined,
+    idCabang: lockedCabangId ?? (params.cabang ? parseInt(params.cabang) : undefined),
   }
 
-  const data = await getDashboard1Data(filters)
+  const [data, listCabang] = await Promise.all([
+    getDashboard1Data(filters),
+    isAdmin
+      ? prisma.cabang.findMany({
+          where: { deletedAt: null },
+          orderBy: { nama: 'asc' },
+          select: { id: true, kode: true, nama: true },
+        })
+      : dbUser.idCabang
+        ? prisma.cabang.findMany({
+            where: { id: dbUser.idCabang },
+            select: { id: true, kode: true, nama: true },
+          })
+        : Promise.resolve([]),
+  ])
+
   const pencapaian = data.target > 0 ? (data.omzet / data.target) * 100 : 0
   const currentYear = data.tahun
+  const cabangNama = listCabang[0]?.nama
 
   return (
     <div className="space-y-6">
@@ -62,7 +90,11 @@ export default async function DashboardPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Monitoring Penjualan</h1>
           <p className="text-sm text-muted-foreground">
-            Ringkasan tahun {currentYear} · Update{' '}
+            Ringkasan tahun {currentYear}
+            {cabangNama && lockedCabangId && (
+              <> · Cabang: <strong>{cabangNama}</strong></>
+            )}
+            {' · '}Update{' '}
             {new Date().toLocaleDateString('id-ID', {
               day: 'numeric',
               month: 'long',
@@ -85,11 +117,14 @@ export default async function DashboardPage({
         idBahan={filters.idBahan}
         idJenis={filters.idJenis}
         idPart={filters.idPart}
+        idCabang={filters.idCabang}
+        lockedCabangId={lockedCabangId ?? undefined}
         listSales={data.filterOptions.listSales}
         listCustomer={data.filterOptions.listCustomer}
         listBahan={data.filterOptions.listBahan}
         listJenis={data.filterOptions.listJenis}
         listPart={data.filterOptions.listPart}
+        listCabang={listCabang}
       />
 
       {/* KPI Row */}

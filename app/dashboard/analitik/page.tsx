@@ -1,6 +1,7 @@
 import { connection } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import prisma from '@/lib/prisma'
 import { getDashboard2Data, type Dashboard2Filters } from '@/lib/dashboard-queries'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { FilterBar } from '@/components/dashboard/filter-bar'
@@ -30,6 +31,7 @@ type SearchParams = Promise<{
   idBahan?: string
   idJenis?: string
   idPart?: string
+  cabang?: string
 }>
 
 export default async function AnalitikPage({
@@ -37,11 +39,12 @@ export default async function AnalitikPage({
 }: {
   searchParams: SearchParams
 }) {
-  await requirePageAccess('/dashboard/analitik')
+  const user = await requirePageAccess('/dashboard/analitik')
   await connection()
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+
+  // 🛡️ Cabang lock: ADMIN bebas, role lain terkunci ke cabang sendiri
+  const isAdmin = user.role === 'ADMIN'
+  const lockedCabangId = !isAdmin && user.idCabang ? user.idCabang : null
 
   const params = await searchParams
 
@@ -53,11 +56,28 @@ export default async function AnalitikPage({
     idBahan: params.idBahan ? parseInt(params.idBahan) : undefined,
     idJenis: params.idJenis ? parseInt(params.idJenis) : undefined,
     idPart: params.idPart ? parseInt(params.idPart) : undefined,
+    idCabang: lockedCabangId ?? (params.cabang ? parseInt(params.cabang) : undefined),
   }
 
-  const d = await getDashboard2Data(filters)
+  const [d, listCabang] = await Promise.all([
+    getDashboard2Data(filters),
+    isAdmin
+      ? prisma.cabang.findMany({
+          where: { deletedAt: null },
+          orderBy: { nama: 'asc' },
+          select: { id: true, kode: true, nama: true },
+        })
+      : user.idCabang
+        ? prisma.cabang.findMany({
+            where: { id: user.idCabang },
+            select: { id: true, kode: true, nama: true },
+          })
+        : Promise.resolve([]),
+  ])
+
   const currentYear = d.tahun
   const prevYear = d.tahunLalu
+  const cabangNama = listCabang[0]?.nama
 
   const trendData = d.trendOmzet2Tahun as Record<string, unknown>[]
   const trendSeries = [`y${prevYear}`, `y${currentYear}`]
@@ -72,14 +92,21 @@ export default async function AnalitikPage({
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      {/* ============================================
-          HEADER
-      ============================================ */}
+      {/* HEADER */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Analitik Penjualan</h1>
           <p className="text-sm text-muted-foreground">
-            Ringkasan tahun {currentYear} · Update {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            Ringkasan tahun {currentYear}
+            {cabangNama && lockedCabangId && (
+              <> · Cabang: <strong>{cabangNama}</strong></>
+            )}
+            {' · '}Update{' '}
+            {new Date().toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -88,9 +115,7 @@ export default async function AnalitikPage({
         </div>
       </div>
 
-      {/* ============================================
-          FILTER BAR
-      ============================================ */}
+      {/* FILTER BAR */}
       <FilterBar
         tahun={filters.tahun ?? currentYear}
         bulan={filters.bulan}
@@ -99,16 +124,17 @@ export default async function AnalitikPage({
         idBahan={filters.idBahan}
         idJenis={filters.idJenis}
         idPart={filters.idPart}
+        idCabang={filters.idCabang}
+        lockedCabangId={lockedCabangId ?? undefined}
         listSales={d.filterOptions.listSales}
         listCustomer={d.filterOptions.listCustomer}
         listBahan={d.filterOptions.listBahan}
         listJenis={d.filterOptions.listJenis}
         listPart={d.filterOptions.listPart}
+        listCabang={listCabang}
       />
 
-      {/* ============================================
-          KPI ROW — 5 kartu horizontal
-      ============================================ */}
+      {/* KPI ROW — 5 kartu horizontal */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           title="Total Omzet"
@@ -147,9 +173,7 @@ export default async function AnalitikPage({
         />
       </div>
 
-      {/* ============================================
-          ROW 1: Target vs Actual | Donut Jenis | Donut Part
-      ============================================ */}
+      {/* ROW 1: Target vs Actual | Donut Jenis | Donut Part */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
@@ -184,9 +208,7 @@ export default async function AnalitikPage({
         </Card>
       </div>
 
-      {/* ============================================
-          ROW 2: Top Hutang Item | Omzet Sales | Trend 2 Tahun
-      ============================================ */}
+      {/* ROW 2: Top Hutang Item | Omzet Sales | Trend 2 Tahun */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
@@ -230,9 +252,7 @@ export default async function AnalitikPage({
         </Card>
       </div>
 
-      {/* ============================================
-          ROW 3: Top Omzet Part | Top Omzet Customer | Top Unit 2 Tahun
-      ============================================ */}
+      {/* ROW 3: Top Omzet Part | Top Omzet Customer | Top Unit 2 Tahun */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
@@ -277,9 +297,8 @@ export default async function AnalitikPage({
           </CardContent>
         </Card>
       </div>
-            {/* ============================================
-          ROW 4: Pivot Table Full Cross-Tab
-      ============================================ */}
+
+      {/* ROW 4: Pivot Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">

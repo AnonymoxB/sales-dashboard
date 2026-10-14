@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { X, SlidersHorizontal } from 'lucide-react'
+import { X, SlidersHorizontal, Lock } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 
@@ -15,11 +15,14 @@ type FilterBarProps = {
   idBahan?: number
   idJenis?: number
   idPart?: number
+  idCabang?: number
+  lockedCabangId?: number
   listSales: Option[]
   listCustomer: Option[]
   listBahan: Option[]
   listJenis: Option[]
   listPart: Option[]
+  listCabang: Option[]
 }
 
 const BULAN = [
@@ -47,6 +50,8 @@ export function FilterBar(props: FilterBarProps) {
     (y) => ({ value: String(y), label: String(y) })
   )
 
+  const isCabangLocked = !!props.lockedCabangId
+
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (!value || value === 'all') {
@@ -61,29 +66,17 @@ export function FilterBar(props: FilterBarProps) {
     router.push(pathname)
   }
 
-  const hasFilter = searchParams.toString().length > 0
+  // Kalau cabang locked, jangan hitung filter cabang di "hasFilter" count
+  const filteredParams = new URLSearchParams(searchParams.toString())
+  if (isCabangLocked) filteredParams.delete('cabang')
+  const hasFilter = filteredParams.toString().length > 0
 
-  // Konversi list ke format { value, label }
-  const salesOptions = props.listSales.map((s) => ({
-    value: String(s.id),
-    label: s.nama,
-  }))
-  const customerOptions = props.listCustomer.map((c) => ({
-    value: String(c.id),
-    label: c.nama,
-  }))
-  const bahanOptions = props.listBahan.map((b) => ({
-    value: String(b.id),
-    label: b.nama,
-  }))
-  const jenisOptions = props.listJenis.map((j) => ({
-    value: String(j.id),
-    label: j.nama,
-  }))
-  const partOptions = props.listPart.map((p) => ({
-    value: String(p.id),
-    label: `${p.kode} — ${p.nama}`,
-  }))
+  const salesOptions = props.listSales.map((s) => ({ value: String(s.id), label: s.nama }))
+  const customerOptions = props.listCustomer.map((c) => ({ value: String(c.id), label: c.nama }))
+  const bahanOptions = props.listBahan.map((b) => ({ value: String(b.id), label: b.nama }))
+  const jenisOptions = props.listJenis.map((j) => ({ value: String(j.id), label: j.nama }))
+  const partOptions = props.listPart.map((p) => ({ value: String(p.id), label: `${p.kode} — ${p.nama}` }))
+  const cabangOptions = props.listCabang.map((c) => ({ value: String(c.id), label: c.nama }))
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -91,6 +84,12 @@ export function FilterBar(props: FilterBarProps) {
       <div className="mb-3 flex items-center gap-2">
         <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-semibold">Filter Data</span>
+        {isCabangLocked && (
+          <span className="flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+            <Lock className="h-3 w-3" />
+            Terkunci ke cabang Anda
+          </span>
+        )}
         {hasFilter && (
           <button
             onClick={handleReset}
@@ -103,7 +102,7 @@ export function FilterBar(props: FilterBarProps) {
       </div>
 
       {/* Grid filter dengan label */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         {/* TAHUN */}
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Tahun</Label>
@@ -124,6 +123,23 @@ export function FilterBar(props: FilterBarProps) {
             options={BULAN}
             placeholder="Semua Bulan"
             allLabel="Semua Bulan"
+          />
+        </div>
+
+        {/* CABANG — locked untuk non-ADMIN */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            Cabang
+            {isCabangLocked && <Lock className="h-3 w-3 text-amber-600" />}
+          </Label>
+          <SearchableSelect
+            value={props.idCabang ? String(props.idCabang) : 'all'}
+            onValueChange={(v) => updateFilter('cabang', v)}
+            options={cabangOptions}
+            placeholder="Semua Cabang"
+            allLabel="Semua Cabang"
+            searchPlaceholder="Cari cabang..."
+            disabled={isCabangLocked}
           />
         </div>
 
