@@ -22,9 +22,8 @@ import {
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  approveUser, rejectUser, changeUserRole, deleteUser,
+  approveUser, rejectUser, changeUserRole, deleteUser, updateUser,
 } from '@/lib/actions/users'
-import { EditUserDialog } from './edit-user-dialog'
 
 type UserItem = {
   id: string
@@ -92,11 +91,36 @@ export function UsersTable({
   data: UserItem[]
   listCabang: Cabang[]
 }) {
+  const [editTarget, setEditTarget] = useState<UserItem | null>(null)
   const [rejectTarget, setRejectTarget] = useState<UserItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [editNama, setEditNama] = useState('')
+  const [editIdCabang, setEditIdCabang] = useState<string>('none')
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
+  const openEdit = (u: UserItem) => {
+    setEditTarget(u)
+    setEditNama(u.nama ?? '')
+    setEditIdCabang(u.idCabang ? String(u.idCabang) : 'none')
+  }
+
+  const handleSaveEdit = () => {
+    if (!editTarget) return
+    startTransition(async () => {
+      const result = await updateUser(editTarget.id, {
+        nama: editNama,
+        idCabang: editIdCabang === 'none' ? null : parseInt(editIdCabang),
+      })
+      if (result.error) toast.error(result.error)
+      else {
+        toast.success('User diubah')
+        setEditTarget(null)
+        router.refresh()
+      }
+    })
+  }
 
   const handleApprove = (u: UserItem) => {
     startTransition(async () => {
@@ -210,42 +234,23 @@ export function UsersTable({
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
-                        {/* EDIT — selalu ada */}
-                        <EditUserDialog
-                          user={{
-                            id: u.id,
-                            email: u.email,
-                            nama: u.nama,
-                            idCabang: u.idCabang,
-                            cabang: u.cabang,
-                          }}
-                          listCabang={listCabang}
-                          trigger={
-                            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                          }
-                        />
+                        <DropdownMenuItem onClick={(e) => { e.preventDefault(); openEdit(u) }}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
                         <div className="my-1 h-px bg-border" />
 
                         {u.status === 'PENDING' && (
                           <>
                             <DropdownMenuItem
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleApprove(u)
-                              }}
+                              onClick={(e) => { e.preventDefault(); handleApprove(u) }}
                               disabled={isPending}
                             >
                               <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
                               Approve
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={(e) => {
-                                e.preventDefault()
-                                setRejectTarget(u)
-                              }}
+                              onClick={(e) => { e.preventDefault(); setRejectTarget(u) }}
                               disabled={isPending}
                               className="text-destructive focus:text-destructive"
                             >
@@ -259,10 +264,7 @@ export function UsersTable({
                         {u.status === 'REJECTED' && (
                           <>
                             <DropdownMenuItem
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleApprove(u)
-                              }}
+                              onClick={(e) => { e.preventDefault(); handleApprove(u) }}
                               disabled={isPending}
                             >
                               <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
@@ -299,10 +301,7 @@ export function UsersTable({
 
                         <div className="my-1 h-px bg-border" />
                         <DropdownMenuItem
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setDeleteTarget(u)
-                          }}
+                          onClick={(e) => { e.preventDefault(); setDeleteTarget(u) }}
                           disabled={isPending || u.isMe}
                           className="text-destructive focus:text-destructive"
                         >
@@ -318,6 +317,70 @@ export function UsersTable({
           </Table>
         </div>
       </div>
+
+      {/* EDIT DIALOG — render di luar dropdown */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Ubah nama & cabang user</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={editTarget?.email ?? ''} disabled className="bg-muted" />
+              <p className="text-xs text-muted-foreground">Email tidak bisa diubah</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-nama">Nama</Label>
+              <Input
+                id="edit-nama"
+                value={editNama}
+                onChange={(e) => setEditNama(e.target.value)}
+                placeholder="Nama lengkap"
+                disabled={isPending}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Cabang</Label>
+              <select
+                value={editIdCabang}
+                onChange={(e) => setEditIdCabang(e.target.value)}
+                disabled={isPending}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="none">— Tanpa Cabang —</option>
+                {listCabang.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.kode} — {c.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditTarget(null)}
+              disabled={isPending}
+            >
+              Batal
+            </Button>
+            <Button type="button" onClick={handleSaveEdit} disabled={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason('') } }}>
