@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Key, BookOpen, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, BookOpen, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiKeyTable } from './api-key-table'
@@ -24,9 +25,17 @@ export function ApiKeysPage({ initialData }: { initialData: ApiKeyItem[] }) {
       {/* Info Card */}
       <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-blue-600" />
-            <CardTitle className="text-base">Endpoint Integrasi</CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-base">Endpoint Integrasi</CardTitle>
+            </div>
+            <Link href="/dashboard/api-keys/docs">
+              <Button size="sm" variant="outline" className="bg-background">
+                Buka Dokumentasi
+                <ExternalLink className="ml-2 h-3 w-3" />
+              </Button>
+            </Link>
           </div>
           <CardDescription className="text-blue-900/80 dark:text-blue-200/80">
             Gunakan API key di bawah untuk autentikasi dari sistem eksternal (ERP, mobile app, dll)
