@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { generateApiKey } from '@/lib/api-key-utils'
 
 export async function createApiKey(nama: string) {
@@ -10,6 +11,8 @@ export async function createApiKey(nama: string) {
   if (trimmed.length > 100) return { error: 'Nama maksimal 100 karakter' }
 
   try {
+    await requireAction('admin.api')
+
     const { plaintext, hash, prefix } = generateApiKey()
     await prisma.apiKey.create({
       data: { nama: trimmed, keyHash: hash, prefix },
@@ -23,6 +26,8 @@ export async function createApiKey(nama: string) {
 
 export async function toggleApiKey(id: number, aktif: boolean) {
   try {
+    await requireAction('admin.api')
+
     await prisma.apiKey.update({
       where: { id },
       data: { aktif },
@@ -36,6 +41,8 @@ export async function toggleApiKey(id: number, aktif: boolean) {
 
 export async function deleteApiKey(id: number) {
   try {
+    await requireAction('admin.api')
+
     await prisma.apiKey.delete({ where: { id } })
     revalidatePath('/dashboard/api-keys')
     return { success: true }

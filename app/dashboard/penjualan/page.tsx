@@ -6,6 +6,7 @@ import { PenjualanFormDialog } from '@/components/penjualan/penjualan-form-dialo
 import { PenjualanFilters } from '@/components/penjualan/penjualan-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -25,6 +26,7 @@ export default async function PenjualanPage({
 }: {
   searchParams: SearchParams
 }) {
+    await requirePageAccess('/dashboard/penjualan')
   await connection()
 
   const params = await searchParams

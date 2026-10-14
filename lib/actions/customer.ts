@@ -2,13 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { customerSchema, type CustomerInput } from '@/lib/validations/customer'
 
 export async function createCustomer(input: CustomerInput) {
-  const parsed = customerSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+
+    const parsed = customerSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.customer.create({
       data: {
         kode: parsed.data.kode,
@@ -29,10 +32,12 @@ export async function createCustomer(input: CustomerInput) {
 }
 
 export async function updateCustomer(id: number, input: CustomerInput) {
-  const parsed = customerSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+
+    const parsed = customerSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.customer.update({
       where: { id },
       data: {
@@ -54,6 +59,8 @@ export async function updateCustomer(id: number, input: CustomerInput) {
 
 export async function deleteCustomer(id: number) {
   try {
+    await requireAction('master.delete')
+
     const customer = await prisma.customer.findUnique({
       where: { id, deletedAt: null },
       include: {

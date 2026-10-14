@@ -401,6 +401,17 @@ model Webhook {
   @@map("webhooks")
 }
 
+model RolePermission {
+  id        Int      @id @default(autoincrement())
+  role      Role
+  resource  String   // "page:/dashboard/analitik" | "action:master.delete"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([role, resource])
+  @@index([role])
+  @@map("role_permissions")
+}
+
 // ============================================
 // VIEWS
 // ============================================

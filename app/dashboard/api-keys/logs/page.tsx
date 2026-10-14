@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
 import { ApiLogsPage } from '@/components/api-logs/api-logs-page'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -20,6 +21,7 @@ export default async function Page({
 }: {
   searchParams: SearchParams
 }) {
+    await requirePageAccess('/dashboard/api-keys/logs')
   await connection()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
+import { getPermissionsForRole, type Role } from '@/lib/rbac'
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
   BreadcrumbPage, BreadcrumbSeparator,
@@ -27,19 +28,12 @@ export default async function DashboardLayout({
     where: { supabaseId: user.id },
   })
 
-  // Cek status user
-  if (!dbUser) {
-    // User ada di auth tapi tidak di public.users — trigger belum jalan
-    redirect('/pending?reason=not-synced')
-  }
+  if (!dbUser) redirect('/pending?reason=not-synced')
+  if (dbUser.status === 'PENDING') redirect('/pending?reason=pending')
+  if (dbUser.status === 'REJECTED') redirect('/pending?reason=rejected')
 
-  if (dbUser.status === 'PENDING') {
-    redirect('/pending?reason=pending')
-  }
-
-  if (dbUser.status === 'REJECTED') {
-    redirect(`/pending?reason=rejected`)
-  }
+  // ← Fetch permissions dinamis dari DB
+  const permissions = await getPermissionsForRole(dbUser.role as Role)
 
   return (
     <SidebarProvider>
@@ -47,8 +41,9 @@ export default async function DashboardLayout({
         user={{
           email: user.email ?? '',
           nama: dbUser.nama ?? user.email ?? '',
-          role: dbUser.role,
+          role: dbUser.role as Role,
         }}
+        permissions={permissions}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -63,7 +58,7 @@ export default async function DashboardLayout({
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Nasional</BreadcrumbPage>
+                <BreadcrumbPage>Fuboru Indonesia</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>

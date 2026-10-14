@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
 import { TrashPage } from '@/components/trash/trash-page'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
 export default async function Page() {
+    await requirePageAccess('/dashboard/trash')
   await connection()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

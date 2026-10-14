@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import {
   merkSchema, jenisSchema, bahanSchema, partSchema,
   type MerkInput, type JenisInput, type BahanInput, type PartInput,
@@ -11,10 +12,11 @@ import {
 // MERK
 // ============================================
 export async function createMerk(input: MerkInput) {
-  const parsed = merkSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+    const parsed = merkSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.merk.create({
       data: { kode: parsed.data.kode, nama: parsed.data.nama, source: 'manual' },
     })
@@ -28,10 +30,11 @@ export async function createMerk(input: MerkInput) {
 }
 
 export async function updateMerk(id: number, input: MerkInput) {
-  const parsed = merkSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+    const parsed = merkSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.merk.update({
       where: { id },
       data: { kode: parsed.data.kode, nama: parsed.data.nama },
@@ -47,6 +50,8 @@ export async function updateMerk(id: number, input: MerkInput) {
 
 export async function deleteMerk(id: number) {
   try {
+    await requireAction('master.delete')
+
     const merk = await prisma.merk.findUnique({
       where: { id, deletedAt: null },
       include: { _count: { select: { bahan: { where: { deletedAt: null } } } } },
@@ -68,10 +73,11 @@ export async function deleteMerk(id: number) {
 // JENIS
 // ============================================
 export async function createJenis(input: JenisInput) {
-  const parsed = jenisSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+    const parsed = jenisSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.jenis.create({
       data: { kode: parsed.data.kode, nama: parsed.data.nama, source: 'manual' },
     })
@@ -85,10 +91,11 @@ export async function createJenis(input: JenisInput) {
 }
 
 export async function updateJenis(id: number, input: JenisInput) {
-  const parsed = jenisSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+    const parsed = jenisSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.jenis.update({
       where: { id },
       data: { kode: parsed.data.kode, nama: parsed.data.nama },
@@ -104,6 +111,8 @@ export async function updateJenis(id: number, input: JenisInput) {
 
 export async function deleteJenis(id: number) {
   try {
+    await requireAction('master.delete')
+
     const jenis = await prisma.jenis.findUnique({
       where: { id, deletedAt: null },
       include: { _count: { select: { bahan: { where: { deletedAt: null } } } } },
@@ -125,10 +134,11 @@ export async function deleteJenis(id: number) {
 // BAHAN
 // ============================================
 export async function createBahan(input: BahanInput) {
-  const parsed = bahanSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+    const parsed = bahanSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.bahan.create({
       data: {
         kode: parsed.data.kode,
@@ -148,10 +158,11 @@ export async function createBahan(input: BahanInput) {
 }
 
 export async function updateBahan(id: number, input: BahanInput) {
-  const parsed = bahanSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+    const parsed = bahanSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.bahan.update({
       where: { id },
       data: {
@@ -172,6 +183,8 @@ export async function updateBahan(id: number, input: BahanInput) {
 
 export async function deleteBahan(id: number) {
   try {
+    await requireAction('master.delete')
+
     const bahan = await prisma.bahan.findUnique({
       where: { id, deletedAt: null },
       include: { _count: { select: { part: { where: { deletedAt: null } } } } },
@@ -193,10 +206,11 @@ export async function deleteBahan(id: number) {
 // PART
 // ============================================
 export async function createPart(input: PartInput) {
-  const parsed = partSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+    const parsed = partSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.part.create({
       data: {
         kode: parsed.data.kode,
@@ -218,10 +232,11 @@ export async function createPart(input: PartInput) {
 }
 
 export async function updatePart(id: number, input: PartInput) {
-  const parsed = partSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+    const parsed = partSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.part.update({
       where: { id },
       data: {
@@ -244,6 +259,8 @@ export async function updatePart(id: number, input: PartInput) {
 
 export async function deletePart(id: number) {
   try {
+    await requireAction('master.delete')
+
     const part = await prisma.part.findUnique({
       where: { id, deletedAt: null },
       include: {

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { penjualanSchema, type PenjualanInput } from '@/lib/validations/penjualan'
 import { refreshDashboardMV } from './refresh-mv'
 
@@ -10,10 +11,12 @@ function hitungTotal(qty: number, hargaSatuan: number, diskon: number) {
 }
 
 export async function createPenjualan(input: PenjualanInput) {
-  const parsed = penjualanSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('penjualan.create')
+
+    const parsed = penjualanSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     const sales = await prisma.sales.findUnique({
       where: { id: parsed.data.idSales, deletedAt: null },
       select: { idCabang: true },
@@ -50,10 +53,12 @@ export async function createPenjualan(input: PenjualanInput) {
 }
 
 export async function updatePenjualan(id: bigint, input: PenjualanInput) {
-  const parsed = penjualanSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('penjualan.update')
+
+    const parsed = penjualanSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     const sales = await prisma.sales.findUnique({
       where: { id: parsed.data.idSales, deletedAt: null },
       select: { idCabang: true },
@@ -91,7 +96,8 @@ export async function updatePenjualan(id: bigint, input: PenjualanInput) {
 
 export async function deletePenjualan(id: bigint) {
   try {
-    // SOFT DELETE
+    await requireAction('penjualan.delete')
+
     await prisma.penjualan.update({
       where: { id },
       data: { deletedAt: new Date() },

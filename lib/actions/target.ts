@@ -2,16 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { targetBulkSchema, type TargetBulkInput } from '@/lib/validations/target'
 import { refreshDashboardMV } from './refresh-mv'
 
 export async function upsertTargetBulk(input: TargetBulkInput) {
-  const parsed = targetBulkSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
-  const periode = new Date(parsed.data.periode)
-
   try {
+    await requireAction('target.manage')
+
+    const parsed = targetBulkSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+    const periode = new Date(parsed.data.periode)
+
     const salesIds = parsed.data.items.map((i) => i.idSales)
     const salesList = await prisma.sales.findMany({
       where: { id: { in: salesIds }, deletedAt: null },
@@ -63,6 +66,8 @@ export async function upsertTargetBulk(input: TargetBulkInput) {
 
 export async function deleteTargetPeriode(periode: string) {
   try {
+    await requireAction('target.manage')
+
     const date = new Date(periode)
     await prisma.target.updateMany({
       where: { periode: date, deletedAt: null },

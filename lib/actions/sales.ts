@@ -2,14 +2,17 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { salesSchema, type SalesInput } from '@/lib/validations/sales'
 import { refreshDashboardMV } from './refresh-mv'
 
 export async function createSales(input: SalesInput) {
-  const parsed = salesSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+
+    const parsed = salesSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.sales.create({
       data: {
         kode: parsed.data.kode,
@@ -31,10 +34,12 @@ export async function createSales(input: SalesInput) {
 }
 
 export async function updateSales(id: number, input: SalesInput) {
-  const parsed = salesSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+
+    const parsed = salesSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.sales.update({
       where: { id },
       data: {
@@ -57,6 +62,8 @@ export async function updateSales(id: number, input: SalesInput) {
 
 export async function deleteSales(id: number) {
   try {
+    await requireAction('master.delete')
+
     const sales = await prisma.sales.findUnique({
       where: { id, deletedAt: null },
       include: {
@@ -85,7 +92,6 @@ export async function deleteSales(id: number) {
       }
     }
 
-    // SOFT DELETE
     await prisma.sales.update({
       where: { id },
       data: { deletedAt: new Date() },

@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Wallet, Package, CheckCircle2, Users, ReceiptText } from 'lucide-react'
 import { formatRupiah, formatNumber } from '@/lib/format'
 import { PivotTable } from '@/components/dashboard/pivot-table'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -36,6 +37,7 @@ export default async function AnalitikPage({
 }: {
   searchParams: SearchParams
 }) {
+  await requirePageAccess('/dashboard/analitik')
   await connection()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

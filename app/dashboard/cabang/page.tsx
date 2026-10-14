@@ -6,6 +6,7 @@ import { CabangFormDialog } from '@/components/cabang/cabang-form-dialog'
 import { CabangFilters } from '@/components/cabang/cabang-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -18,6 +19,7 @@ export default async function CabangPage({
 }: {
   searchParams: SearchParams
 }) {
+    await requirePageAccess('/dashboard/cabang')
   await connection()
 
   const params = await searchParams

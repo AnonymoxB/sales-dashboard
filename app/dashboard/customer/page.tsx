@@ -6,6 +6,7 @@ import { CustomerFormDialog } from '@/components/customer/customer-form-dialog'
 import { CustomerFilters } from '@/components/customer/customer-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -18,6 +19,7 @@ export default async function CustomerPage({
 }: {
   searchParams: SearchParams
 }) {
+    await requirePageAccess('/dashboard/customer')
   await connection()
 
   const params = await searchParams

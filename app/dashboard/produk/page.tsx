@@ -1,10 +1,12 @@
 import { connection } from 'next/server'
 import { ProdukTabs } from '@/components/produk/produk-tabs'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
 export default async function ProdukPage() {
+  await requirePageAccess('/dashboard/produk')
   await connection()
 
   const [merkList, jenisList, bahanList, partList] = await Promise.all([

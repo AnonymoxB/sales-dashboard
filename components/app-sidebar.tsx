@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
+  BarChart3,
   Users,
   ShoppingCart,
   Target,
@@ -10,62 +11,64 @@ import {
   Package,
   LogOut,
   Store,
-  BarChart3,
   ArrowUpDown,
   Key,
-  Building2,
   Trash2,
-  Activity,
   UserCog,
+  Building2,
+  Activity,
+  Settings,
 } from 'lucide-react'
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
+  SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
+import { Badge } from '@/components/ui/badge'
 
-const menuItems = [
-  { title: 'Overview', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Analitik', url: '/dashboard/analitik', icon: BarChart3 },
-  { title: 'Penjualan', url: '/dashboard/penjualan', icon: ShoppingCart },
-  { title: 'Target', url: '/dashboard/target', icon: Target },
-  { title: 'Hutang Barang', url: '/dashboard/hutang', icon: ReceiptText },
+type Role = 'ADMIN' | 'MANAGER' | 'SALES'
+
+type MenuItem = {
+  title: string
+  url: string
+  icon: React.ComponentType<{ className?: string }>
+  permission: string // "page:/dashboard/..."
+}
+
+const menuItems: MenuItem[] = [
+  { title: 'Overview', url: '/dashboard', icon: LayoutDashboard, permission: 'page:/dashboard' },
+  { title: 'Analitik', url: '/dashboard/analitik', icon: BarChart3, permission: 'page:/dashboard/analitik' },
+  { title: 'Penjualan', url: '/dashboard/penjualan', icon: ShoppingCart, permission: 'page:/dashboard/penjualan' },
+  { title: 'Target', url: '/dashboard/target', icon: Target, permission: 'page:/dashboard/target' },
+  { title: 'Hutang Barang', url: '/dashboard/hutang', icon: ReceiptText, permission: 'page:/dashboard/hutang' },
 ]
 
-const masterItems = [
-  { title: 'Sales', url: '/dashboard/sales', icon: Users },
-  { title: 'Cabang', url: '/dashboard/cabang', icon: Store },
-  { title: 'Customer', url: '/dashboard/customer', icon: Building2 },
-  { title: 'Produk', url: '/dashboard/produk', icon: Package },
-  { title: 'Import/Export', url: '/dashboard/import-export', icon: ArrowUpDown },
-  { title: 'API Keys', url: '/dashboard/api-keys', icon: Key },
-  { title: 'API Logs', url: '/dashboard/api-keys/logs', icon: Activity },
-  { title: 'Trash', url: '/dashboard/trash', icon: Trash2 },
+const masterItems: MenuItem[] = [
+  { title: 'Sales', url: '/dashboard/sales', icon: Users, permission: 'page:/dashboard/sales' },
+  { title: 'Cabang', url: '/dashboard/cabang', icon: Store, permission: 'page:/dashboard/cabang' },
+  { title: 'Customer', url: '/dashboard/customer', icon: Building2, permission: 'page:/dashboard/customer' },
+  { title: 'Produk', url: '/dashboard/produk', icon: Package, permission: 'page:/dashboard/produk' },
 ]
 
-const adminItems = [
-  { title: 'Users', url: '/dashboard/users', icon: UserCog },
+const adminItems: MenuItem[] = [
+  { title: 'Import/Export', url: '/dashboard/import-export', icon: ArrowUpDown, permission: 'page:/dashboard/import-export' },
+  { title: 'API Keys', url: '/dashboard/api-keys', icon: Key, permission: 'page:/dashboard/api-keys' },
+  { title: 'API Logs', url: '/dashboard/api-keys/logs', icon: Activity, permission: 'page:/dashboard/api-keys/logs' },
+  { title: 'Trash', url: '/dashboard/trash', icon: Trash2, permission: 'page:/dashboard/trash' },
+  { title: 'Users', url: '/dashboard/users', icon: UserCog, permission: 'page:/dashboard/users' },
+  { title: 'Permissions', url: '/dashboard/settings/permissions', icon: Settings, permission: 'page:/dashboard/settings/permissions' },
 ]
 
 export function AppSidebar({
   user,
+  permissions,
 }: {
-  user: { email: string; nama: string; role: string }
+  user: { email: string; nama: string; role: Role }
+  permissions: string[]
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -84,6 +87,20 @@ export function AppSidebar({
     router.refresh()
   }
 
+  // ← Filter by permission, bukan role
+  const filterByPermission = (items: MenuItem[]) =>
+    items.filter((item) => permissions.includes(item.permission))
+
+  const visibleMenu = filterByPermission(menuItems)
+  const visibleMaster = filterByPermission(masterItems)
+  const visibleAdmin = filterByPermission(adminItems)
+
+  const roleColor = {
+    ADMIN: 'bg-purple-600 hover:bg-purple-600',
+    MANAGER: 'bg-blue-600 hover:bg-blue-600',
+    SALES: 'bg-slate-600 hover:bg-slate-600',
+  }[user.role]
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -93,72 +110,73 @@ export function AppSidebar({
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight">Sales Dashboard</span>
-            <span className="text-xs text-muted-foreground leading-tight">
-              Fuboru Indonesia
-            </span>
+            <span className="text-xs text-muted-foreground leading-tight">Fuboru Indonesia</span>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.url}
-                    onClick={() => router.push(item.url)}
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {visibleMenu.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleMenu.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.url}
+                      onClick={() => router.push(item.url)}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Master Data</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {masterItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.url}
-                    onClick={() => router.push(item.url)}
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {visibleMaster.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Master Data</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleMaster.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.url}
+                      onClick={() => router.push(item.url)}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* ← TAMBAH group Admin */}
-        {user.role === 'ADMIN' && (
-            <SidebarGroup>
+        {visibleAdmin.length > 0 && (
+          <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
-                <SidebarMenu>
-                {adminItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
+              <SidebarMenu>
+                {visibleAdmin.map((item) => (
+                  <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                        isActive={pathname === item.url}
-                        onClick={() => router.push(item.url)}
+                      isActive={pathname === item.url}
+                      onClick={() => router.push(item.url)}
                     >
-                        <item.icon />
-                        <span>{item.title}</span>
+                      <item.icon />
+                      <span>{item.title}</span>
                     </SidebarMenuButton>
-                    </SidebarMenuItem>
+                  </SidebarMenuItem>
                 ))}
-                </SidebarMenu>
+              </SidebarMenu>
             </SidebarGroupContent>
-            </SidebarGroup>
+          </SidebarGroup>
         )}
       </SidebarContent>
 
@@ -175,13 +193,17 @@ export function AppSidebar({
                     <div className="flex flex-col text-left text-sm">
                       <span className="font-medium truncate">{user.nama}</span>
                       <span className="text-xs text-muted-foreground truncate">
-                        {user.role}
+                        {user.email}
                       </span>
                     </div>
                   </SidebarMenuButton>
                 }
               />
               <DropdownMenuContent side="right" align="end" className="w-56">
+                <div className="px-2 py-1.5">
+                  <Badge className={roleColor}>{user.role}</Badge>
+                </div>
+                <div className="my-1 h-px bg-border" />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout

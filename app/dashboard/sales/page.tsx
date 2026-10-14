@@ -6,6 +6,7 @@ import { SalesFormDialog } from '@/components/sales/sales-form-dialog'
 import { SalesFilters } from '@/components/sales/sales-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -18,6 +19,7 @@ export default async function SalesPage({
 }: {
   searchParams: SearchParams
 }) {
+  await requirePageAccess('/dashboard/sales')
   await connection()
 
   const params = await searchParams

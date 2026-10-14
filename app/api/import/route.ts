@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { ENTITIES, type EntityKey } from '@/lib/import-export/config'
 import { parseExcel } from '@/lib/import-export/excel'
 
@@ -17,6 +18,13 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // 🛡️ Cek permission
+  try {
+    await requireAction('admin.import')
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 403 })
+  }
 
   const formData = await request.formData()
   const file = formData.get('file') as File | null

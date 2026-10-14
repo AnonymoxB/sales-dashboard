@@ -2,99 +2,44 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import {
-  fakturSchema,
   pembayaranSchema,
   type FakturInput,
   type PembayaranInput,
 } from '@/lib/validations/hutang'
+import { createFakturInternal } from '@/lib/hutang-service'
 import { refreshDashboardMV } from './refresh-mv'
 
+// Dari UI — cek permission
 export async function createFaktur(input: FakturInput) {
-  const parsed = fakturSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
-    const sales = await prisma.sales.findUnique({
-      where: { id: parsed.data.idSales, deletedAt: null },
-      select: { idCabang: true },
-    })
-    if (!sales) return { error: 'Sales tidak ditemukan' }
+    await requireAction('faktur.create')
 
-    const totalTagihan = parsed.data.items.reduce(
-      (sum, item) => sum + item.qty * item.hargaSatuan,
-      0
-    )
-    const subtotalDpp = totalTagihan
-    const ppn = Math.round(subtotalDpp * 0.11)
-    const total = subtotalDpp + ppn
+    const result = await createFakturInternal(input)
 
-    const tanggal = new Date(parsed.data.tanggal)
-    const jatuhTempo = new Date(parsed.data.jatuhTempo)
+    // Kalau sukses (tidak ada 'error' di result)
+    if (!('error' in result)) {
+      revalidatePath('/dashboard/hutang')
+      await refreshDashboardMV()
+    }
 
-    const faktur = await prisma.$transaction(async (tx) => {
-      const newFaktur = await tx.faktur.create({
-        data: {
-          nomorFaktur: parsed.data.nomorFaktur,
-          tanggal,
-          jatuhTempo,
-          idSales: parsed.data.idSales,
-          idCabang: sales.idCabang,
-          subtotalDpp,
-          ppn,
-          totalTagihan: total,
-          status: 'BELUM_LUNAS',
-          source: 'manual',
-          detail: {
-            create: parsed.data.items.map((item) => ({
-              idPart: item.idPart,
-              qty: item.qty,
-              hargaSatuan: item.hargaSatuan,
-              subtotal: item.qty * item.hargaSatuan,
-            })),
-          },
-        },
-      })
-
-      await tx.hutang.create({
-        data: {
-          idFaktur: newFaktur.id,
-          idSales: parsed.data.idSales,
-          idCabang: sales.idCabang,
-          tanggalFaktur: tanggal,
-          jatuhTempo,
-          totalHutang: total,
-          totalBayar: 0,
-          sisaHutang: total,
-          statusLunas: false,
-        },
-      })
-
-      return newFaktur
-    })
-
-    revalidatePath('/dashboard/hutang')
-    await refreshDashboardMV()
-    return { success: true, id: faktur.id.toString() }
+    return result
   } catch (e: unknown) {
-    const err = e as { code?: string; message?: string }
-    if (err.code === 'P2002') return { error: 'Nomor faktur sudah digunakan' }
-    return { error: err.message ?? 'Gagal menyimpan faktur' }
+    return { error: (e as Error).message }
   }
 }
 
 export async function deleteFaktur(id: bigint) {
   try {
+    await requireAction('faktur.delete')
     const hutang = await prisma.hutang.findFirst({
       where: { idFaktur: id, deletedAt: null },
     })
     if (hutang && Number(hutang.totalBayar) > 0) {
-      return {
-        error: 'Faktur sudah ada pembayaran. Tidak bisa dihapus.',
-      }
+      return { error: 'Faktur sudah ada pembayaran. Tidak bisa dihapus.' }
     }
 
-    // SOFT DELETE Faktur + Hutang
     await prisma.$transaction(async (tx) => {
       await tx.hutang.updateMany({
         where: { idFaktur: id },
@@ -116,10 +61,11 @@ export async function deleteFaktur(id: bigint) {
 }
 
 export async function bayarHutang(input: PembayaranInput) {
-  const parsed = pembayaranSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('faktur.bayar')
+    const parsed = pembayaranSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     const hutang = await prisma.hutang.findUnique({
       where: { id: parsed.data.idHutang, deletedAt: null },
     })

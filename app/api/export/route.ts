@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { ENTITIES, type EntityKey } from '@/lib/import-export/config'
 import { generateExport, generateTemplate } from '@/lib/import-export/excel'
-
 
 async function buildRows(entity: EntityKey, mode: 'template' | 'export') {
   if (mode === 'template') return []
@@ -158,6 +158,13 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // 🛡️ Cek permission
+  try {
+    await requireAction('admin.import')
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const entity = searchParams.get('entity') as EntityKey | null

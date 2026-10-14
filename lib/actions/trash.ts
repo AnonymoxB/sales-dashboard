@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 
 const MODELS = [
   'cabang', 'customer', 'sales', 'merk', 'jenis', 'bahan', 'part',
@@ -12,6 +13,8 @@ export type TrashModel = typeof MODELS[number]
 
 export async function restoreItem(model: TrashModel, id: number | bigint) {
   try {
+    await requireAction('admin.trash')
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (prisma as any)[model].update({
       where: { id },
@@ -27,6 +30,8 @@ export async function restoreItem(model: TrashModel, id: number | bigint) {
 
 export async function permanentDelete(model: TrashModel, id: number | bigint) {
   try {
+    await requireAction('admin.trash')
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (prisma as any)[model].delete({ where: { id } })
     revalidatePath('/dashboard/trash')
@@ -38,6 +43,8 @@ export async function permanentDelete(model: TrashModel, id: number | bigint) {
 
 export async function restoreAll(model: TrashModel) {
   try {
+    await requireAction('admin.trash')
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (prisma as any)[model].updateMany({
       where: { NOT: { deletedAt: null } },
@@ -53,6 +60,8 @@ export async function restoreAll(model: TrashModel) {
 
 export async function emptyTrash(model: TrashModel) {
   try {
+    await requireAction('admin.trash')
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (prisma as any)[model].deleteMany({
       where: { NOT: { deletedAt: null } },

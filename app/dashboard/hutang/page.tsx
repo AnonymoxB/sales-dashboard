@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button'
 import { HutangTabs } from '@/components/hutang/hutang-tabs'
 import { FakturFormDialog } from '@/components/hutang/faktur-form-dialog'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
 export default async function HutangPage() {
+  await requirePageAccess('/dashboard/hutang')
   await connection()
 
   const [fakturRaw, piutangRaw, listSales, listPartRaw] = await Promise.all([

@@ -2,6 +2,7 @@ import { connection } from 'next/server'
 import { TargetEditor } from '@/components/target/target-editor'
 import { PeriodeSelector } from '@/components/target/periode-selector'
 import prisma from '@/lib/prisma'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
@@ -12,6 +13,7 @@ export default async function TargetPage({
 }: {
   searchParams: SearchParams
 }) {
+    await requirePageAccess('/dashboard/target')
   await connection()
 
   const params = await searchParams

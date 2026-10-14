@@ -2,25 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
-import { createClient } from '@/lib/supabase/server'
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
-
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.id },
-  })
-  if (!dbUser || dbUser.role !== 'ADMIN' || dbUser.status !== 'APPROVED') {
-    throw new Error('Forbidden: Admin only')
-  }
-  return dbUser
-}
+import { requireAction } from '@/lib/rbac'
 
 export async function approveUser(userId: string) {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAction('admin.users')
 
     await prisma.user.update({
       where: { id: userId },
@@ -42,7 +28,7 @@ export async function approveUser(userId: string) {
 
 export async function rejectUser(userId: string, reason: string) {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAction('admin.users')
 
     await prisma.user.update({
       where: { id: userId },
@@ -60,11 +46,14 @@ export async function rejectUser(userId: string, reason: string) {
   }
 }
 
-export async function changeUserRole(userId: string, role: 'ADMIN' | 'MANAGER' | 'SALES') {
+export async function changeUserRole(
+  userId: string,
+  role: 'ADMIN' | 'MANAGER' | 'SALES'
+) {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAction('admin.users')
 
-    // Cegah admin ubah role dirinya sendiri (opsional)
+    // Cegah admin ubah role dirinya sendiri
     if (admin.id === userId) {
       return { error: 'Tidak bisa mengubah role Anda sendiri' }
     }
@@ -82,7 +71,7 @@ export async function changeUserRole(userId: string, role: 'ADMIN' | 'MANAGER' |
 
 export async function deleteUser(userId: string) {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireAction('admin.users')
 
     if (admin.id === userId) {
       return { error: 'Tidak bisa menghapus akun Anda sendiri' }
@@ -98,7 +87,7 @@ export async function deleteUser(userId: string) {
 
 export async function setUserCabang(userId: string, idCabang: number | null) {
   try {
-    await requireAdmin()
+    await requireAction('admin.users')
 
     await prisma.user.update({
       where: { id: userId },
@@ -119,7 +108,7 @@ export async function updateUser(
   }
 ) {
   try {
-    await requireAdmin()
+    await requireAction('admin.users')
 
     await prisma.user.update({
       where: { id: userId },

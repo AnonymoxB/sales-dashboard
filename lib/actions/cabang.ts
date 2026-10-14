@@ -2,13 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 import prisma from '@/lib/prisma'
+import { requireAction } from '@/lib/rbac'
 import { cabangSchema, type CabangInput } from '@/lib/validations/cabang'
 
 export async function createCabang(input: CabangInput) {
-  const parsed = cabangSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.create')
+
+    const parsed = cabangSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.cabang.create({
       data: {
         kode: parsed.data.kode,
@@ -28,10 +31,12 @@ export async function createCabang(input: CabangInput) {
 }
 
 export async function updateCabang(id: number, input: CabangInput) {
-  const parsed = cabangSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
-
   try {
+    await requireAction('master.update')
+
+    const parsed = cabangSchema.safeParse(input)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+
     await prisma.cabang.update({
       where: { id },
       data: {
@@ -52,6 +57,8 @@ export async function updateCabang(id: number, input: CabangInput) {
 
 export async function deleteCabang(id: number) {
   try {
+    await requireAction('master.delete')
+
     const cabang = await prisma.cabang.findUnique({
       where: { id, deletedAt: null },
       include: {

@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
 import { ApiKeysPage } from '@/components/api-keys/api-keys-page'
+import { requirePageAccess } from '@/lib/rbac'
 
 export const instant = false
 
 export default async function Page() {
+  await requirePageAccess('/dashboard/api-keys')
   await connection()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
