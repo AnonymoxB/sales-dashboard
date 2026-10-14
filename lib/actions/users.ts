@@ -110,3 +110,27 @@ export async function setUserCabang(userId: string, idCabang: number | null) {
     return { error: (e as Error).message }
   }
 }
+
+export async function updateUser(
+  userId: string,
+  data: {
+    nama?: string
+    idCabang?: number | null
+  }
+) {
+  try {
+    await requireAdmin()
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        nama: data.nama?.trim() || null,
+        idCabang: data.idCabang ?? null,
+      },
+    })
+    revalidatePath('/dashboard/users')
+    return { success: true }
+  } catch (e) {
+    return { error: (e as Error).message }
+  }
+}

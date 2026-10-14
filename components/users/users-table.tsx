@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MoreHorizontal, CheckCircle2, XCircle, Trash2, Loader2,
-  Shield, ShieldCheck, User as UserIcon,
+  Shield, ShieldCheck, User as UserIcon, Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ import {
 import {
   approveUser, rejectUser, changeUserRole, deleteUser,
 } from '@/lib/actions/users'
+import { EditUserDialog } from './edit-user-dialog'
 
 type UserItem = {
   id: string
@@ -209,6 +210,25 @@ export function UsersTable({
                         <MoreHorizontal className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
+                        {/* EDIT — selalu ada */}
+                        <EditUserDialog
+                          user={{
+                            id: u.id,
+                            email: u.email,
+                            nama: u.nama,
+                            idCabang: u.idCabang,
+                            cabang: u.cabang,
+                          }}
+                          listCabang={listCabang}
+                          trigger={
+                            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          }
+                        />
+                        <div className="my-1 h-px bg-border" />
+
                         {u.status === 'PENDING' && (
                           <>
                             <DropdownMenuItem
