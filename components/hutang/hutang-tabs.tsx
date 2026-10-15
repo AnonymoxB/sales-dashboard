@@ -37,9 +37,13 @@ type Piutang = {
 export function HutangTabs({
   fakturList,
   piutangList,
+  canDelete,
+  canBayar,
 }: {
   fakturList: Faktur[]
   piutangList: Piutang[]
+  canDelete: boolean
+  canBayar: boolean
 }) {
   const [tab, setTab] = useState('faktur')
 
@@ -60,10 +64,10 @@ export function HutangTabs({
       </TabsList>
 
       <TabsContent value="faktur">
-        <FakturTab data={fakturList} />
+        <FakturTab data={fakturList} canDelete={canDelete} />
       </TabsContent>
       <TabsContent value="piutang">
-        <PiutangTab data={piutangList} />
+        <PiutangTab data={piutangList} canBayar={canBayar} />
       </TabsContent>
     </Tabs>
   )

@@ -6,7 +6,7 @@ import { SalesFormDialog } from '@/components/sales/sales-form-dialog'
 import { SalesFilters } from '@/components/sales/sales-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
@@ -19,8 +19,15 @@ export default async function SalesPage({
 }: {
   searchParams: SearchParams
 }) {
-  await requirePageAccess('/dashboard/sales')
+  const user = await requirePageAccess('/dashboard/sales')
   await connection()
+
+  // 🛡️ Cek permission sekali untuk UI
+  const [canCreate, canUpdate, canDelete] = await Promise.all([
+    canPerformAction(user.role, 'master.create'),
+    canPerformAction(user.role, 'master.update'),
+    canPerformAction(user.role, 'master.delete'),
+  ])
 
   const params = await searchParams
   const currentPage = Math.max(1, parseInt(params.page ?? '1') || 1)
@@ -67,21 +74,28 @@ export default async function SalesPage({
             Kelola data sales per cabang
           </p>
         </div>
-        <SalesFormDialog
-          mode="create"
-          listCabang={listCabang}
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Sales
-            </Button>
-          }
-        />
+        {canCreate && (
+          <SalesFormDialog
+            mode="create"
+            listCabang={listCabang}
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Sales
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <SalesFilters listCabang={listCabang} />
 
-      <SalesTable data={data} listCabang={listCabang} />
+      <SalesTable
+        data={data}
+        listCabang={listCabang}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
+      />
 
       <PaginationBar
         currentPage={currentPage}

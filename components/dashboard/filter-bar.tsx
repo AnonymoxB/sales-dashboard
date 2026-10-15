@@ -66,7 +66,6 @@ export function FilterBar(props: FilterBarProps) {
     router.push(pathname)
   }
 
-  // Kalau cabang locked, jangan hitung filter cabang di "hasFilter" count
   const filteredParams = new URLSearchParams(searchParams.toString())
   if (isCabangLocked) filteredParams.delete('cabang')
   const hasFilter = filteredParams.toString().length > 0
@@ -79,10 +78,9 @@ export function FilterBar(props: FilterBarProps) {
   const cabangOptions = props.listCabang.map((c) => ({ value: String(c.id), label: c.nama }))
 
   return (
-    <div className="rounded-lg border bg-card p-4">
-      {/* Header filter */}
-      <div className="mb-3 flex items-center gap-2">
-        <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+    <div className="w-full min-w-0 rounded-lg border bg-card p-3 sm:p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-semibold">Filter Data</span>
         {isCabangLocked && (
           <span className="flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
@@ -101,10 +99,9 @@ export function FilterBar(props: FilterBarProps) {
         )}
       </div>
 
-      {/* Grid filter dengan label */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-        {/* TAHUN */}
-        <div className="space-y-1.5">
+      {/* Grid: MAX 4 kolom — cukup untuk 8 dropdown di 1366px = 2 baris rapi */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Tahun</Label>
           <SearchableSelect
             value={String(props.tahun)}
@@ -114,8 +111,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* BULAN */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Bulan</Label>
           <SearchableSelect
             value={props.bulan ? String(props.bulan) : 'all'}
@@ -126,8 +122,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* CABANG — locked untuk non-ADMIN */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             Cabang
             {isCabangLocked && <Lock className="h-3 w-3 text-amber-600" />}
@@ -143,8 +138,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* SALES */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Nama Sales</Label>
           <SearchableSelect
             value={props.idSales ? String(props.idSales) : 'all'}
@@ -156,8 +150,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* CUSTOMER */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Customer</Label>
           <SearchableSelect
             value={props.idCustomer ? String(props.idCustomer) : 'all'}
@@ -169,8 +162,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* BAHAN */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Bahan</Label>
           <SearchableSelect
             value={props.idBahan ? String(props.idBahan) : 'all'}
@@ -182,8 +174,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* JENIS */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Jenis</Label>
           <SearchableSelect
             value={props.idJenis ? String(props.idJenis) : 'all'}
@@ -195,8 +186,7 @@ export function FilterBar(props: FilterBarProps) {
           />
         </div>
 
-        {/* PART */}
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Part</Label>
           <SearchableSelect
             value={props.idPart ? String(props.idPart) : 'all'}

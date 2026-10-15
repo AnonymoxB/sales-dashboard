@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Save, RotateCcw } from 'lucide-react'
+import { Loader2, Save, RotateCcw, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { upsertTargetBulk } from '@/lib/actions/target'
-import { formatRupiah, formatNumber } from '@/lib/format'
+import { formatRupiah } from '@/lib/format'
 
 type Sales = {
   id: number
@@ -43,18 +43,19 @@ export function TargetEditor({
   existing,
   periode,
   omzetPerSales,
+  canManage,
 }: {
   listSales: Sales[]
   existing: TargetExisting[]
   periode: string
   omzetPerSales: { idSales: number; omzet: number; qty: number }[]
+  canManage: boolean
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [filterCabang, setFilterCabang] = useState('all')
   const [filterQ, setFilterQ] = useState('')
 
-  // State: map idSales -> target value (string untuk input)
   const initialValues = useMemo(() => {
     const map: Record<number, string> = {}
     for (const s of listSales) {
@@ -66,7 +67,6 @@ export function TargetEditor({
 
   const [values, setValues] = useState<Record<number, string>>(initialValues)
 
-  // Deteksi perubahan
   const hasChanges = useMemo(() => {
     for (const s of listSales) {
       const original = initialValues[s.id] ?? ''
@@ -101,6 +101,7 @@ export function TargetEditor({
   }, [listSales, filterCabang, filterQ])
 
   const handleChange = (idSales: number, val: string) => {
+    if (!canManage) return
     setValues((prev) => ({ ...prev, [idSales]: val }))
   }
 
@@ -110,6 +111,7 @@ export function TargetEditor({
   }
 
   const handleSave = async () => {
+    if (!canManage) return
     if (!hasChanges) {
       toast.info('Tidak ada perubahan')
       return
@@ -121,7 +123,6 @@ export function TargetEditor({
         idSales: s.id,
         targetOmzet: parseFloat(values[s.id]) || 0,
       }))
-      // Kirim hanya yang berubah (optimasi)
       .filter((item) => {
         const original = initialValues[item.idSales] ?? ''
         const current = values[item.idSales] ?? ''
@@ -152,6 +153,14 @@ export function TargetEditor({
 
   return (
     <div className="space-y-4">
+      {/* Readonly notice */}
+      {!canManage && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>Anda tidak punya akses untuk mengubah target. Hanya lihat.</span>
+        </div>
+      )}
+
       {/* Filter & Actions Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -176,27 +185,29 @@ export function TargetEditor({
           </Select>
         </div>
 
-        <div className="flex items-center gap-2">
-          {hasChanges && (
-            <Button variant="outline" size="sm" onClick={handleReset} disabled={loading}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Reset
-            </Button>
-          )}
-          <Button size="sm" onClick={handleSave} disabled={loading || !hasChanges}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Simpan {hasChanges ? '(ada perubahan)' : ''}
-              </>
+        {canManage && (
+          <div className="flex items-center gap-2">
+            {hasChanges && (
+              <Button variant="outline" size="sm" onClick={handleReset} disabled={loading}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
             )}
-          </Button>
-        </div>
+            <Button size="sm" onClick={handleSave} disabled={loading || !hasChanges}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Simpan {hasChanges ? '(ada perubahan)' : ''}
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Summary */}
@@ -244,16 +255,22 @@ export function TargetEditor({
                       {s.cabang.nama}
                     </TableCell>
                     <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="100000"
-                        placeholder="0"
-                        value={values[s.id] ?? ''}
-                        onChange={(e) => handleChange(s.id, e.target.value)}
-                        className="h-8 text-right font-mono text-sm"
-                        disabled={loading}
-                      />
+                      {canManage ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          step="100000"
+                          placeholder="0"
+                          value={values[s.id] ?? ''}
+                          onChange={(e) => handleChange(s.id, e.target.value)}
+                          className="h-8 text-right font-mono text-sm"
+                          disabled={loading}
+                        />
+                      ) : (
+                        <div className="text-right font-mono text-sm py-1.5">
+                          {target > 0 ? formatRupiah(target) : '—'}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {formatRupiah(omzet)}

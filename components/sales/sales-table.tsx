@@ -7,28 +7,14 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { SalesFormDialog } from './sales-form-dialog'
 import { deleteSales } from '@/lib/actions/sales'
@@ -48,9 +34,13 @@ type Cabang = { id: number; kode: string; nama: string }
 export function SalesTable({
   data,
   listCabang,
+  canUpdate,
+  canDelete,
 }: {
   data: Sales[]
   listCabang: Cabang[]
+  canUpdate: boolean
+  canDelete: boolean
 }) {
   const [deleteTarget, setDeleteTarget] = useState<Sales | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -69,6 +59,9 @@ export function SalesTable({
       setDeleteTarget(null)
     })
   }
+
+  // 🔑 Kalau nggak punya update & delete, kolom aksi nggak perlu
+  const showActions = canUpdate || canDelete
 
   if (data.length === 0) {
     return (
@@ -92,7 +85,7 @@ export function SalesTable({
               <TableHead>Cabang</TableHead>
               <TableHead>Telepon</TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
-              <TableHead className="w-[60px]" />
+              {showActions && <TableHead className="w-[60px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -111,45 +104,51 @@ export function SalesTable({
                     {s.aktif ? 'Aktif' : 'Nonaktif'}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <SalesFormDialog
-                        mode="edit"
-                        listCabang={listCabang}
-                        defaultValues={{
-                          id: s.id,
-                          kode: s.kode,
-                          nama: s.nama,
-                          idCabang: s.idCabang,
-                          telepon: s.telepon ?? '',
-                          aktif: s.aktif,
-                        }}
-                        trigger={
-                          <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        }
-                      />
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setDeleteTarget(s)
-                        }}
-                        className="text-destructive focus:text-destructive"
+                {showActions && (
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Hapus
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canUpdate && (
+                          <SalesFormDialog
+                            mode="edit"
+                            listCabang={listCabang}
+                            defaultValues={{
+                              id: s.id,
+                              kode: s.kode,
+                              nama: s.nama,
+                              idCabang: s.idCabang,
+                              telepon: s.telepon ?? '',
+                              aktif: s.aktif,
+                            }}
+                            trigger={
+                              <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            }
+                          />
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setDeleteTarget(s)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

@@ -36,7 +36,13 @@ type Faktur = {
   } | null
 }
 
-export function FakturTab({ data }: { data: Faktur[] }) {
+export function FakturTab({
+  data,
+  canDelete,
+}: {
+  data: Faktur[]
+  canDelete: boolean
+}) {
   const [deleteTarget, setDeleteTarget] = useState<Faktur | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -77,7 +83,7 @@ export function FakturTab({ data }: { data: Faktur[] }) {
               <TableHead className="text-right">Dibayar</TableHead>
               <TableHead className="text-right">Sisa</TableHead>
               <TableHead className="w-[110px]">Status</TableHead>
-              <TableHead className="w-[60px]" />
+              {canDelete && <TableHead className="w-[60px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -126,25 +132,27 @@ export function FakturTab({ data }: { data: Faktur[] }) {
                       <Badge variant="secondary">Belum Lunas</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setDeleteTarget(f)
-                          }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Hapus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  {canDelete && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setDeleteTarget(f)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               )
             })}

@@ -6,7 +6,7 @@ import { PenjualanFormDialog } from '@/components/penjualan/penjualan-form-dialo
 import { PenjualanFilters } from '@/components/penjualan/penjualan-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
@@ -26,8 +26,15 @@ export default async function PenjualanPage({
 }: {
   searchParams: SearchParams
 }) {
-    await requirePageAccess('/dashboard/penjualan')
+  const user = await requirePageAccess('/dashboard/penjualan')
   await connection()
+
+  // 🛡️ Cek permission sekali untuk UI
+  const [canCreate, canUpdate, canDelete] = await Promise.all([
+    canPerformAction(user.role, 'penjualan.create'),
+    canPerformAction(user.role, 'penjualan.update'),
+    canPerformAction(user.role, 'penjualan.delete'),
+  ])
 
   const params = await searchParams
   const currentPage = Math.max(1, parseInt(params.page ?? '1') || 1)
@@ -128,22 +135,30 @@ export default async function PenjualanPage({
             Kelola transaksi penjualan harian
           </p>
         </div>
-        <PenjualanFormDialog
-          mode="create"
-          listSales={listSales}
-          listPart={listPart}
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Penjualan
-            </Button>
-          }
-        />
+        {canCreate && (
+          <PenjualanFormDialog
+            mode="create"
+            listSales={listSales}
+            listPart={listPart}
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Penjualan
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <PenjualanFilters listCabang={listCabang} listSales={listSales} />
 
-      <PenjualanTable data={data} listSales={listSales} listPart={listPart} />
+      <PenjualanTable
+        data={data}
+        listSales={listSales}
+        listPart={listPart}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
+      />
 
       <PaginationBar
         currentPage={currentPage}

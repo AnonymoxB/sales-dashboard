@@ -39,11 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  createMerk,
-  updateMerk,
-  deleteMerk,
-} from '@/lib/actions/produk'
+import { createMerk, updateMerk, deleteMerk } from '@/lib/actions/produk'
 
 type Merk = {
   id: number
@@ -127,10 +123,22 @@ function MerkFormDialog({
   )
 }
 
-export function MerkTab({ data }: { data: Merk[] }) {
+export function MerkTab({
+  data,
+  canCreate,
+  canUpdate,
+  canDelete,
+}: {
+  data: Merk[]
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
+}) {
   const [deleteTarget, setDeleteTarget] = useState<Merk | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
+  const showActions = canUpdate || canDelete
 
   const handleDelete = () => {
     if (!deleteTarget) return
@@ -152,15 +160,17 @@ export function MerkTab({ data }: { data: Merk[] }) {
           <h2 className="text-lg font-semibold">Merk</h2>
           <p className="text-sm text-muted-foreground">Daftar merk produk</p>
         </div>
-        <MerkFormDialog
-          mode="create"
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Merk
-            </Button>
-          }
-        />
+        {canCreate && (
+          <MerkFormDialog
+            mode="create"
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Merk
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {data.length === 0 ? (
@@ -175,7 +185,7 @@ export function MerkTab({ data }: { data: Merk[] }) {
                 <TableHead className="w-[150px]">Kode</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead className="w-[100px] text-right">Bahan</TableHead>
-                <TableHead className="w-[60px]" />
+                {showActions && <TableHead className="w-[60px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -184,35 +194,41 @@ export function MerkTab({ data }: { data: Merk[] }) {
                   <TableCell className="font-mono text-sm">{m.kode}</TableCell>
                   <TableCell className="font-medium">{m.nama}</TableCell>
                   <TableCell className="text-right text-sm">{m._count?.bahan ?? 0}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <MerkFormDialog
-                          mode="edit"
-                          defaultValues={{ id: m.id, kode: m.kode, nama: m.nama }}
-                          trigger={
-                            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
+                  {showActions && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canUpdate && (
+                            <MerkFormDialog
+                              mode="edit"
+                              defaultValues={{ id: m.id, kode: m.kode, nama: m.nama }}
+                              trigger={
+                                <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                              }
+                            />
+                          )}
+                          {canDelete && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setDeleteTarget(m)
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Hapus
                             </DropdownMenuItem>
-                          }
-                        />
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setDeleteTarget(m)
-                          }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Hapus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

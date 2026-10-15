@@ -28,7 +28,15 @@ type Customer = {
   aktif: boolean
 }
 
-export function CustomerTable({ data }: { data: Customer[] }) {
+export function CustomerTable({
+  data,
+  canUpdate,
+  canDelete,
+}: {
+  data: Customer[]
+  canUpdate: boolean
+  canDelete: boolean
+}) {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -45,6 +53,9 @@ export function CustomerTable({ data }: { data: Customer[] }) {
       setDeleteTarget(null)
     })
   }
+
+  // 🔑 Kalau nggak punya update & delete, kolom aksi nggak perlu
+  const showActions = canUpdate || canDelete
 
   if (data.length === 0) {
     return (
@@ -68,7 +79,7 @@ export function CustomerTable({ data }: { data: Customer[] }) {
               <TableHead>Alamat</TableHead>
               <TableHead>Telepon</TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
-              <TableHead className="w-[60px]" />
+              {showActions && <TableHead className="w-[60px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,51 +98,56 @@ export function CustomerTable({ data }: { data: Customer[] }) {
                     {c.aktif ? 'Aktif' : 'Nonaktif'}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <CustomerFormDialog
-                        mode="edit"
-                        defaultValues={{
-                          id: c.id,
-                          kode: c.kode,
-                          nama: c.nama,
-                          alamat: c.alamat ?? '',
-                          telepon: c.telepon ?? '',
-                          aktif: c.aktif,
-                        }}
-                        trigger={
-                          <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        }
-                      />
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setDeleteTarget(c)
-                        }}
-                        className="text-destructive focus:text-destructive"
+                {showActions && (
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Hapus
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canUpdate && (
+                          <CustomerFormDialog
+                            mode="edit"
+                            defaultValues={{
+                              id: c.id,
+                              kode: c.kode,
+                              nama: c.nama,
+                              alamat: c.alamat ?? '',
+                              telepon: c.telepon ?? '',
+                              aktif: c.aktif,
+                            }}
+                            trigger={
+                              <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            }
+                          />
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setDeleteTarget(c)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
 
-      {/* Pakai Dialog biasa, bukan AlertDialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

@@ -42,7 +42,6 @@ export default async function AnalitikPage({
   const user = await requirePageAccess('/dashboard/analitik')
   await connection()
 
-  // 🛡️ Cabang lock: ADMIN bebas, role lain terkunci ke cabang sendiri
   const isAdmin = user.role === 'ADMIN'
   const lockedCabangId = !isAdmin && user.idCabang ? user.idCabang : null
 
@@ -91,12 +90,14 @@ export default async function AnalitikPage({
     .sort((a, b) => b.value - a.value)
 
   return (
-    <div className="w-full min-w-0 space-y-5">
+    <div className="w-full min-w-0 max-w-full space-y-4 sm:space-y-5 lg:space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analitik Penjualan</h1>
-          <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            Analitik Penjualan
+          </h1>
+          <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
             Ringkasan tahun {currentYear}
             {cabangNama && lockedCabangId && (
               <> · Cabang: <strong>{cabangNama}</strong></>
@@ -109,7 +110,7 @@ export default async function AnalitikPage({
             })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <RefreshButton />
           <Badge variant="outline">Live</Badge>
         </div>
@@ -134,185 +135,128 @@ export default async function AnalitikPage({
         listCabang={listCabang}
       />
 
-      {/* KPI ROW — 5 kartu horizontal */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard
-          title="Total Omzet"
-          value={formatRupiah(d.totalOmzet)}
-          description={`Tahun ${currentYear}`}
-          icon={Wallet}
-          color="text-blue-600"
-        />
-        <KpiCard
-          title="Total In Unit"
-          value={formatNumber(d.totalUnit)}
-          description="pcs terjual"
-          icon={Package}
-          color="text-purple-600"
-        />
-        <KpiCard
-          title="Total Bayar"
-          value={formatRupiah(d.totalBayar)}
-          description="faktur lunas"
-          icon={CheckCircle2}
-          color="text-green-600"
-        />
-        <KpiCard
-          title="Total Customer"
-          value={formatNumber(d.totalCustomer)}
-          description="customer unik"
-          icon={Users}
-          color="text-cyan-600"
-        />
-        <KpiCard
-          title="Hutang Barang"
-          value={formatRupiah(d.totalHutang)}
-          description="sisa piutang"
-          icon={ReceiptText}
-          color="text-orange-600"
-        />
+      {/* KPI ROW — 5 kartu */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
+        <KpiCard title="Total Omzet" value={formatRupiah(d.totalOmzet)} description={`Tahun ${currentYear}`} icon={Wallet} color="text-blue-600" />
+        <KpiCard title="Total In Unit" value={formatNumber(d.totalUnit)} description="pcs terjual" icon={Package} color="text-purple-600" />
+        <KpiCard title="Total Bayar" value={formatRupiah(d.totalBayar)} description="faktur lunas" icon={CheckCircle2} color="text-green-600" />
+        <KpiCard title="Total Customer" value={formatNumber(d.totalCustomer)} description="customer unik" icon={Users} color="text-cyan-600" />
+        <KpiCard title="Hutang Barang" value={formatRupiah(d.totalHutang)} description="sisa piutang" icon={ReceiptText} color="text-orange-600" />
       </div>
 
       {/* ROW 1: Target vs Actual | Donut Jenis | Donut Part */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="flex flex-col">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Target vs Actual</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Target vs Actual</CardTitle>
             <CardDescription className="text-xs">
               Realisasi & target bulanan {currentYear}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
             <TargetVsActualLineChart data={d.targetVsActual} />
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Kontribusi by Jenis</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Kontribusi by Jenis</CardTitle>
             <CardDescription className="text-xs">Dalam unit</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
             <DonutChart data={d.kontribusiJenis} dataKey="unit" labelKey="nama" />
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Kontribusi by Part</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Kontribusi by Part</CardTitle>
             <CardDescription className="text-xs">Dalam unit</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
             <DonutChart data={d.kontribusiPart} dataKey="unit" labelKey="nama" />
           </CardContent>
         </Card>
       </div>
 
-      {/* ROW 2: Top Hutang Item | Omzet Sales | Trend 2 Tahun */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="flex flex-col">
+      {/* ROW 2: Top Hutang | Omzet Sales | Trend 2 Tahun */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 10 Hutang by Item</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Top 10 Hutang by Item</CardTitle>
             <CardDescription className="text-xs">Dalam value</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2 max-h-[340px] overflow-y-auto">
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-auto">
             <TopItemTable data={d.topHutangItem} />
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Omzet by Nama Sales</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Omzet by Nama Sales</CardTitle>
             <CardDescription className="text-xs">Peringkat sales</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
-            <HorizontalBarChart
-              data={d.omzetPerSales}
-              dataKey="omzet"
-              labelKey="nama"
-              color="#3b82f6"
-            />
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
+            <HorizontalBarChart data={d.omzetPerSales} dataKey="omzet" labelKey="nama" color="#3b82f6" />
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Trend Omzet by Month</CardTitle>
-            <CardDescription className="text-xs">
-              {prevYear} vs {currentYear}
-            </CardDescription>
+            <CardTitle className="text-sm sm:text-base">Trend Omzet by Month</CardTitle>
+            <CardDescription className="text-xs">{prevYear} vs {currentYear}</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
-            <MultiLineChart
-              data={trendData}
-              seriesKeys={trendSeries}
-              seriesLabels={trendLabels}
-            />
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
+            <MultiLineChart data={trendData} seriesKeys={trendSeries} seriesLabels={trendLabels} />
           </CardContent>
         </Card>
       </div>
 
       {/* ROW 3: Top Omzet Part | Top Omzet Customer | Top Unit 2 Tahun */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="flex flex-col">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 10 Omzet by Part</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Top 10 Omzet by Part</CardTitle>
             <CardDescription className="text-xs">Part dengan omzet tertinggi</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2 max-h-[340px] overflow-y-auto">
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-auto">
             <TopItemTable data={topOmzetPartData} />
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 10 Omzet by Customer</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Top 10 Omzet by Customer</CardTitle>
             <CardDescription className="text-xs">Customer dengan omzet tertinggi</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
-            <HorizontalBarChart
-              data={d.topCustomer}
-              dataKey="omzet"
-              labelKey="nama"
-              color="#10b981"
-            />
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
+            <HorizontalBarChart data={d.topCustomer} dataKey="omzet" labelKey="nama" color="#10b981" />
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card className="flex flex-col min-w-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 10 In Unit Item by Year</CardTitle>
-            <CardDescription className="text-xs">
-              {prevYear} vs {currentYear}
-            </CardDescription>
+            <CardTitle className="text-sm sm:text-base">Top 10 In Unit Item by Year</CardTitle>
+            <CardDescription className="text-xs">{prevYear} vs {currentYear}</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-2">
-            <GroupedBarChart
-              data={topUnitData}
-              labelKey="nama"
-              seriesKeys={topUnitSeries}
-              seriesLabels={trendLabels}
-              horizontal
-            />
+          <CardContent className="flex-1 min-h-[260px] sm:min-h-[300px] pt-2 overflow-hidden">
+            <GroupedBarChart data={topUnitData} labelKey="nama" seriesKeys={topUnitSeries} seriesLabels={trendLabels} horizontal />
           </CardContent>
         </Card>
       </div>
 
       {/* ROW 4: Pivot Table */}
-      <Card>
+      <Card className="overflow-hidden min-w-0">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">
+          <CardTitle className="text-sm sm:text-base">
             Tabel Detail Penjualan per Sales
           </CardTitle>
           <CardDescription className="text-xs">
             Breakdown Omzet, Value, Unit, Bonus, Customer & Item per part untuk setiap sales
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <PivotTable
-            data={d.pivotData}
-            salesList={d.pivotSalesList}
-          />
+        <CardContent className="p-2 sm:p-4 pt-0 overflow-hidden">
+          <PivotTable data={d.pivotData} salesList={d.pivotSalesList} />
         </CardContent>
       </Card>
     </div>

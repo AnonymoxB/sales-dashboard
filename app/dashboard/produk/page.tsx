@@ -1,28 +1,31 @@
 import { connection } from 'next/server'
 import { ProdukTabs } from '@/components/produk/produk-tabs'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
 export default async function ProdukPage() {
-  await requirePageAccess('/dashboard/produk')
+  const user = await requirePageAccess('/dashboard/produk')
   await connection()
+
+  // 🛡️ Cek permission sekali untuk UI
+  const [canCreate, canUpdate, canDelete] = await Promise.all([
+    canPerformAction(user.role, 'master.create'),
+    canPerformAction(user.role, 'master.update'),
+    canPerformAction(user.role, 'master.delete'),
+  ])
 
   const [merkList, jenisList, bahanList, partList] = await Promise.all([
     prisma.merk.findMany({
       where: { deletedAt: null },
       orderBy: { kode: 'asc' },
-      include: {
-        _count: { select: { bahan: { where: { deletedAt: null } } } },
-      },
+      include: { _count: { select: { bahan: { where: { deletedAt: null } } } } },
     }),
     prisma.jenis.findMany({
       where: { deletedAt: null },
       orderBy: { kode: 'asc' },
-      include: {
-        _count: { select: { bahan: { where: { deletedAt: null } } } },
-      },
+      include: { _count: { select: { bahan: { where: { deletedAt: null } } } } },
     }),
     prisma.bahan.findMany({
       where: { deletedAt: null },
@@ -82,6 +85,9 @@ export default async function ProdukPage() {
         listBahan={listBahan}
         listMerk={listMerk}
         listJenis={listJenis}
+        canCreate={canCreate}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
       />
     </div>
   )

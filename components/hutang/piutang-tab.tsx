@@ -1,15 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { Wallet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { BayarHutangDialog } from './bayar-hutang-dialog'
 import { formatRupiah } from '@/lib/format'
 
@@ -25,10 +21,19 @@ type Piutang = {
   cabang: { nama: string }
 }
 
-export function PiutangTab({ data }: { data: Piutang[] }) {
+export function PiutangTab({
+  data,
+  canBayar,
+}: {
+  data: Piutang[]
+  canBayar: boolean
+}) {
   const belumLunas = data.filter((d) => !d.statusLunas)
   const lunas = data.filter((d) => d.statusLunas)
   const totalSisa = belumLunas.reduce((s, d) => s + d.sisaHutang, 0)
+
+  // Kolom aksi cuma perlu kalau punya permission bayar
+  const showActions = canBayar
 
   if (data.length === 0) {
     return (
@@ -70,7 +75,7 @@ export function PiutangTab({ data }: { data: Piutang[] }) {
               <TableHead className="text-right">Dibayar</TableHead>
               <TableHead className="text-right">Sisa</TableHead>
               <TableHead className="w-[110px]">Status</TableHead>
-              <TableHead className="w-[120px]" />
+              {showActions && <TableHead className="w-[120px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -110,21 +115,23 @@ export function PiutangTab({ data }: { data: Piutang[] }) {
                       <Badge variant="secondary">Belum Lunas</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {!h.statusLunas && (
-                      <BayarHutangDialog
-                        idHutang={h.id}
-                        nomorFaktur={h.nomorFaktur}
-                        sisaHutang={h.sisaHutang}
-                        trigger={
-                          <Button size="sm" variant="outline">
-                            <Wallet className="mr-2 h-4 w-4" />
-                            Bayar
-                          </Button>
-                        }
-                      />
-                    )}
-                  </TableCell>
+                  {showActions && (
+                    <TableCell>
+                      {!h.statusLunas && (
+                        <BayarHutangDialog
+                          idHutang={h.id}
+                          nomorFaktur={h.nomorFaktur}
+                          sisaHutang={h.sisaHutang}
+                          trigger={
+                            <Button size="sm" variant="outline">
+                              <Wallet className="mr-2 h-4 w-4" />
+                              Bayar
+                            </Button>
+                          }
+                        />
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               )
             })}

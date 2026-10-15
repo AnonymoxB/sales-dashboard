@@ -191,15 +191,23 @@ function PartFormDialog({
 export function PartTab({
   data,
   listBahan,
+  canCreate,
+  canUpdate,
+  canDelete,
 }: {
   data: Part[]
   listBahan: Bahan[]
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
 }) {
   const [deleteTarget, setDeleteTarget] = useState<Part | null>(null)
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
   const [filterBahan, setFilterBahan] = useState('all')
   const router = useRouter()
+
+  const showActions = canUpdate || canDelete
 
   const filtered = data.filter((p) => {
     const matchSearch =
@@ -230,16 +238,18 @@ export function PartTab({
           <h2 className="text-lg font-semibold">Part</h2>
           <p className="text-sm text-muted-foreground">Daftar part / item produk</p>
         </div>
-        <PartFormDialog
-          mode="create"
-          listBahan={listBahan}
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Part
-            </Button>
-          }
-        />
+        {canCreate && (
+          <PartFormDialog
+            mode="create"
+            listBahan={listBahan}
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Part
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -278,7 +288,7 @@ export function PartTab({
                 <TableHead className="w-[80px]">Satuan</TableHead>
                 <TableHead className="text-right">Harga Jual</TableHead>
                 <TableHead className="w-[100px]">Status</TableHead>
-                <TableHead className="w-[60px]" />
+                {showActions && <TableHead className="w-[60px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -297,39 +307,45 @@ export function PartTab({
                       {p.aktif ? 'Aktif' : 'Nonaktif'}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <PartFormDialog
-                          mode="edit"
-                          listBahan={listBahan}
-                          defaultValues={{
-                            id: p.id,
-                            kode: p.kode,
-                            nama: p.nama,
-                            idBahan: p.idBahan,
-                            satuan: p.satuan,
-                            hargaJual: Number(p.hargaJual),
-                            aktif: p.aktif,
-                          }}
-                          trigger={
-                            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                              <Pencil className="mr-2 h-4 w-4" />Edit
+                  {showActions && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canUpdate && (
+                            <PartFormDialog
+                              mode="edit"
+                              listBahan={listBahan}
+                              defaultValues={{
+                                id: p.id,
+                                kode: p.kode,
+                                nama: p.nama,
+                                idBahan: p.idBahan,
+                                satuan: p.satuan,
+                                hargaJual: Number(p.hargaJual),
+                                aktif: p.aktif,
+                              }}
+                              trigger={
+                                <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                  <Pencil className="mr-2 h-4 w-4" />Edit
+                                </DropdownMenuItem>
+                              }
+                            />
+                          )}
+                          {canDelete && (
+                            <DropdownMenuItem
+                              onClick={(e) => { e.preventDefault(); setDeleteTarget(p) }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />Hapus
                             </DropdownMenuItem>
-                          }
-                        />
-                        <DropdownMenuItem
-                          onClick={(e) => { e.preventDefault(); setDeleteTarget(p) }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />Hapus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

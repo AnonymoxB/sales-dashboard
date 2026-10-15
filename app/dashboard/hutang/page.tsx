@@ -4,13 +4,20 @@ import { Button } from '@/components/ui/button'
 import { HutangTabs } from '@/components/hutang/hutang-tabs'
 import { FakturFormDialog } from '@/components/hutang/faktur-form-dialog'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
 export default async function HutangPage() {
-  await requirePageAccess('/dashboard/hutang')
+  const user = await requirePageAccess('/dashboard/hutang')
   await connection()
+
+  // 🛡️ Cek permission
+  const [canCreate, canDelete, canBayar] = await Promise.all([
+    canPerformAction(user.role, 'faktur.create'),
+    canPerformAction(user.role, 'faktur.delete'),
+    canPerformAction(user.role, 'faktur.bayar'),
+  ])
 
   const [fakturRaw, piutangRaw, listSales, listPartRaw] = await Promise.all([
     prisma.faktur.findMany({
@@ -110,19 +117,26 @@ export default async function HutangPage() {
             Kelola faktur penjualan dan piutang
           </p>
         </div>
-        <FakturFormDialog
-          listSales={listSalesForm}
-          listPart={listPartForm}
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Buat Faktur
-            </Button>
-          }
-        />
+        {canCreate && (
+          <FakturFormDialog
+            listSales={listSalesForm}
+            listPart={listPartForm}
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Buat Faktur
+              </Button>
+            }
+          />
+        )}
       </div>
 
-      <HutangTabs fakturList={fakturList} piutangList={piutangList} />
+      <HutangTabs
+        fakturList={fakturList}
+        piutangList={piutangList}
+        canDelete={canDelete}
+        canBayar={canBayar}
+      />
     </div>
   )
 }

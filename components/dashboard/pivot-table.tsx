@@ -147,10 +147,10 @@ export function PivotTable({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="w-full min-w-0 space-y-3">
       {/* Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full min-w-0 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Cari kode atau nama part..."
@@ -160,7 +160,7 @@ export function PivotTable({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -195,10 +195,10 @@ export function PivotTable({
         </div>
       </div>
 
-      {/* Table — 1 tabel, header & footer sticky solid */}
-      <div className="rounded-lg border bg-card overflow-hidden">
+      {/* Table — wrapper dengan overflow-auto untuk scroll internal */}
+      <div className="w-full min-w-0 rounded-lg border bg-card overflow-hidden">
         <div className="relative max-h-[600px] overflow-auto">
-          <table className="w-full border-collapse text-xs min-w-max">
+          <table className="border-collapse text-xs min-w-max">
             <thead className="sticky top-0 z-30">
               {/* Header Row 1: Nama Sales */}
               <tr className="bg-muted">
@@ -349,7 +349,6 @@ function FragmentMetricsCells({
   footer?: boolean
   highlight?: boolean
 }) {
-  // Background solid untuk footer
   const footerBg = highlight
     ? 'bg-slate-300 dark:bg-slate-700'
     : 'bg-slate-200 dark:bg-slate-800'

@@ -2,7 +2,7 @@ import { connection } from 'next/server'
 import { TargetEditor } from '@/components/target/target-editor'
 import { PeriodeSelector } from '@/components/target/periode-selector'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
@@ -13,8 +13,11 @@ export default async function TargetPage({
 }: {
   searchParams: SearchParams
 }) {
-    await requirePageAccess('/dashboard/target')
+  const user = await requirePageAccess('/dashboard/target')
   await connection()
+
+  // 🛡️ Cek permission (target cuma punya 1 action: target.manage)
+  const canManage = await canPerformAction(user.role, 'target.manage')
 
   const params = await searchParams
   const now = new Date()
@@ -78,7 +81,7 @@ export default async function TargetPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Target Penjualan</h1>
           <p className="text-sm text-muted-foreground">
-            Set target omzet per sales untuk periode {periodeLabel}
+            {canManage ? 'Set' : 'Lihat'} target omzet per sales untuk periode {periodeLabel}
           </p>
         </div>
         <PeriodeSelector value={periodeParam} options={monthOptions} />
@@ -89,6 +92,7 @@ export default async function TargetPage({
         existing={existing}
         periode={periodeParam}
         omzetPerSales={omzetPerSales}
+        canManage={canManage}
       />
     </div>
   )

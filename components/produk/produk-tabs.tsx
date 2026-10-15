@@ -38,6 +38,9 @@ export function ProdukTabs({
   listBahan,
   listMerk,
   listJenis,
+  canCreate,
+  canUpdate,
+  canDelete,
 }: {
   merkList: Merk[]
   jenisList: Jenis[]
@@ -46,6 +49,9 @@ export function ProdukTabs({
   listBahan: { id: number; kode: string; nama: string; merk: { nama: string } }[]
   listMerk: Merk[]
   listJenis: Jenis[]
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
 }) {
   const [tab, setTab] = useState('merk')
 
@@ -58,13 +64,30 @@ export function ProdukTabs({
         <TabsTrigger value="part">Part</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="merk"><MerkTab data={merkList} /></TabsContent>
-      <TabsContent value="jenis"><JenisTab data={jenisList} /></TabsContent>
+      <TabsContent value="merk">
+        <MerkTab data={merkList} canCreate={canCreate} canUpdate={canUpdate} canDelete={canDelete} />
+      </TabsContent>
+      <TabsContent value="jenis">
+        <JenisTab data={jenisList} canCreate={canCreate} canUpdate={canUpdate} canDelete={canDelete} />
+      </TabsContent>
       <TabsContent value="bahan">
-        <BahanTab data={bahanList} listMerk={listMerk} listJenis={listJenis} />
+        <BahanTab
+          data={bahanList}
+          listMerk={listMerk}
+          listJenis={listJenis}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+        />
       </TabsContent>
       <TabsContent value="part">
-        <PartTab data={partList} listBahan={listBahan} />
+        <PartTab
+          data={partList}
+          listBahan={listBahan}
+          canCreate={canCreate}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
+        />
       </TabsContent>
     </Tabs>
   )

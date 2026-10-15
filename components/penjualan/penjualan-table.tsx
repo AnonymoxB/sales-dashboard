@@ -6,28 +6,14 @@ import { MoreHorizontal, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { PenjualanFormDialog } from './penjualan-form-dialog'
 import { deletePenjualan } from '@/lib/actions/penjualan'
@@ -64,10 +50,14 @@ export function PenjualanTable({
   data,
   listSales,
   listPart,
+  canUpdate,
+  canDelete,
 }: {
   data: Penjualan[]
   listSales: SalesOption[]
   listPart: PartOption[]
+  canUpdate: boolean
+  canDelete: boolean
 }) {
   const [deleteTarget, setDeleteTarget] = useState<Penjualan | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -86,6 +76,9 @@ export function PenjualanTable({
       setDeleteTarget(null)
     })
   }
+
+  // 🔑 Kolom aksi hanya muncul kalau punya minimal satu permission
+  const showActions = canUpdate || canDelete
 
   if (data.length === 0) {
     return (
@@ -112,7 +105,7 @@ export function PenjualanTable({
               <TableHead className="text-right">Harga</TableHead>
               <TableHead className="text-right">Diskon</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="w-[60px]" />
+              {showActions && <TableHead className="w-[60px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -150,47 +143,53 @@ export function PenjualanTable({
                 <TableCell className="text-right text-sm font-semibold">
                   {formatRupiah(p.totalOmzet)}
                 </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <PenjualanFormDialog
-                        mode="edit"
-                        listSales={listSales}
-                        listPart={listPart}
-                        defaultValues={{
-                          id: p.id,
-                          tanggal: new Date(p.tanggal).toISOString().slice(0, 10),
-                          idSales: p.sales.id,
-                          idPart: p.part.id,
-                          qty: p.qty,
-                          hargaSatuan: p.hargaSatuan,
-                          diskon: p.diskon,
-                        }}
-                        trigger={
-                          <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        }
-                      />
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setDeleteTarget(p)
-                        }}
-                        className="text-destructive focus:text-destructive"
+                {showActions && (
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Hapus
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canUpdate && (
+                          <PenjualanFormDialog
+                            mode="edit"
+                            listSales={listSales}
+                            listPart={listPart}
+                            defaultValues={{
+                              id: p.id,
+                              tanggal: new Date(p.tanggal).toISOString().slice(0, 10),
+                              idSales: p.sales.id,
+                              idPart: p.part.id,
+                              qty: p.qty,
+                              hargaSatuan: p.hargaSatuan,
+                              diskon: p.diskon,
+                            }}
+                            trigger={
+                              <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            }
+                          />
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setDeleteTarget(p)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

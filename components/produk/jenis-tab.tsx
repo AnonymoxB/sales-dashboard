@@ -51,7 +51,9 @@ function JenisFormDialog({
       nama: String(fd.get('nama') ?? '').trim(),
     }
     const result =
-      mode === 'create' ? await createJenis(input) : await updateJenis(defaultValues!.id, input)
+      mode === 'create'
+        ? await createJenis(input)
+        : await updateJenis(defaultValues!.id, input)
 
     if (result.error) {
       toast.error(result.error)
@@ -102,10 +104,22 @@ function JenisFormDialog({
   )
 }
 
-export function JenisTab({ data }: { data: Jenis[] }) {
+export function JenisTab({
+  data,
+  canCreate,
+  canUpdate,
+  canDelete,
+}: {
+  data: Jenis[]
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
+}) {
   const [deleteTarget, setDeleteTarget] = useState<Jenis | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
+  const showActions = canUpdate || canDelete
 
   const handleDelete = () => {
     if (!deleteTarget) return
@@ -127,15 +141,17 @@ export function JenisTab({ data }: { data: Jenis[] }) {
           <h2 className="text-lg font-semibold">Jenis</h2>
           <p className="text-sm text-muted-foreground">Daftar jenis produk</p>
         </div>
-        <JenisFormDialog
-          mode="create"
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Jenis
-            </Button>
-          }
-        />
+        {canCreate && (
+          <JenisFormDialog
+            mode="create"
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Jenis
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {data.length === 0 ? (
@@ -150,7 +166,7 @@ export function JenisTab({ data }: { data: Jenis[] }) {
                 <TableHead className="w-[150px]">Kode</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead className="w-[100px] text-right">Bahan</TableHead>
-                <TableHead className="w-[60px]" />
+                {showActions && <TableHead className="w-[60px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,35 +175,41 @@ export function JenisTab({ data }: { data: Jenis[] }) {
                   <TableCell className="font-mono text-sm">{j.kode}</TableCell>
                   <TableCell className="font-medium">{j.nama}</TableCell>
                   <TableCell className="text-right text-sm">{j._count?.bahan ?? 0}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <JenisFormDialog
-                          mode="edit"
-                          defaultValues={{ id: j.id, kode: j.kode, nama: j.nama }}
-                          trigger={
-                            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
+                  {showActions && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canUpdate && (
+                            <JenisFormDialog
+                              mode="edit"
+                              defaultValues={{ id: j.id, kode: j.kode, nama: j.nama }}
+                              trigger={
+                                <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                              }
+                            />
+                          )}
+                          {canDelete && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setDeleteTarget(j)
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Hapus
                             </DropdownMenuItem>
-                          }
-                        />
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setDeleteTarget(j)
-                          }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Hapus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

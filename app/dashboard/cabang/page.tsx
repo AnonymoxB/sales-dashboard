@@ -6,7 +6,7 @@ import { CabangFormDialog } from '@/components/cabang/cabang-form-dialog'
 import { CabangFilters } from '@/components/cabang/cabang-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
@@ -19,8 +19,15 @@ export default async function CabangPage({
 }: {
   searchParams: SearchParams
 }) {
-    await requirePageAccess('/dashboard/cabang')
+  const user = await requirePageAccess('/dashboard/cabang')
   await connection()
+
+  // 🛡️ Cek permission sekali untuk UI
+  const [canCreate, canUpdate, canDelete] = await Promise.all([
+    canPerformAction(user.role, 'master.create'),
+    canPerformAction(user.role, 'master.update'),
+    canPerformAction(user.role, 'master.delete'),
+  ])
 
   const params = await searchParams
   const currentPage = Math.max(1, parseInt(params.page ?? '1') || 1)
@@ -65,20 +72,26 @@ export default async function CabangPage({
             Kelola data cabang di wilayah Jateng Pantura
           </p>
         </div>
-        <CabangFormDialog
-          mode="create"
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Cabang
-            </Button>
-          }
-        />
+        {canCreate && (
+          <CabangFormDialog
+            mode="create"
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Cabang
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <CabangFilters />
 
-      <CabangTable data={data} />
+      <CabangTable
+        data={data}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
+      />
 
       <PaginationBar
         currentPage={currentPage}

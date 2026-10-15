@@ -156,10 +156,16 @@ export function BahanTab({
   data,
   listMerk,
   listJenis,
+  canCreate,
+  canUpdate,
+  canDelete,
 }: {
   data: Bahan[]
   listMerk: Merk[]
   listJenis: Jenis[]
+  canCreate: boolean
+  canUpdate: boolean
+  canDelete: boolean
 }) {
   const [deleteTarget, setDeleteTarget] = useState<Bahan | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -167,6 +173,8 @@ export function BahanTab({
   const [filterMerk, setFilterMerk] = useState('all')
   const [filterJenis, setFilterJenis] = useState('all')
   const router = useRouter()
+
+  const showActions = canUpdate || canDelete
 
   const filtered = data.filter((b) => {
     const matchSearch =
@@ -198,17 +206,19 @@ export function BahanTab({
           <h2 className="text-lg font-semibold">Bahan</h2>
           <p className="text-sm text-muted-foreground">Daftar bahan berdasarkan merk & jenis</p>
         </div>
-        <BahanFormDialog
-          mode="create"
-          listMerk={listMerk}
-          listJenis={listJenis}
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Bahan
-            </Button>
-          }
-        />
+        {canCreate && (
+          <BahanFormDialog
+            mode="create"
+            listMerk={listMerk}
+            listJenis={listJenis}
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Bahan
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -251,7 +261,7 @@ export function BahanTab({
                 <TableHead>Merk</TableHead>
                 <TableHead>Jenis</TableHead>
                 <TableHead className="w-[80px] text-right">Part</TableHead>
-                <TableHead className="w-[60px]" />
+                {showActions && <TableHead className="w-[60px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,38 +272,44 @@ export function BahanTab({
                   <TableCell className="text-sm text-muted-foreground">{b.merk.nama}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{b.jenis.nama}</TableCell>
                   <TableCell className="text-right text-sm">{b._count?.part ?? 0}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <BahanFormDialog
-                          mode="edit"
-                          listMerk={listMerk}
-                          listJenis={listJenis}
-                          defaultValues={{
-                            id: b.id,
-                            kode: b.kode,
-                            nama: b.nama,
-                            idMerk: b.idMerk,
-                            idJenis: b.idJenis,
-                          }}
-                          trigger={
-                            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
-                              <Pencil className="mr-2 h-4 w-4" />Edit
+                  {showActions && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8" />}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canUpdate && (
+                            <BahanFormDialog
+                              mode="edit"
+                              listMerk={listMerk}
+                              listJenis={listJenis}
+                              defaultValues={{
+                                id: b.id,
+                                kode: b.kode,
+                                nama: b.nama,
+                                idMerk: b.idMerk,
+                                idJenis: b.idJenis,
+                              }}
+                              trigger={
+                                <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+                                  <Pencil className="mr-2 h-4 w-4" />Edit
+                                </DropdownMenuItem>
+                              }
+                            />
+                          )}
+                          {canDelete && (
+                            <DropdownMenuItem
+                              onClick={(e) => { e.preventDefault(); setDeleteTarget(b) }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />Hapus
                             </DropdownMenuItem>
-                          }
-                        />
-                        <DropdownMenuItem
-                          onClick={(e) => { e.preventDefault(); setDeleteTarget(b) }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />Hapus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

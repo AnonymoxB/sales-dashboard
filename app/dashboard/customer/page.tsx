@@ -6,7 +6,7 @@ import { CustomerFormDialog } from '@/components/customer/customer-form-dialog'
 import { CustomerFilters } from '@/components/customer/customer-filters'
 import { PaginationBar } from '@/components/ui/pagination-bar'
 import prisma from '@/lib/prisma'
-import { requirePageAccess } from '@/lib/rbac'
+import { requirePageAccess, canPerformAction } from '@/lib/rbac'
 
 export const instant = false
 
@@ -19,15 +19,22 @@ export default async function CustomerPage({
 }: {
   searchParams: SearchParams
 }) {
-    await requirePageAccess('/dashboard/customer')
+  const user = await requirePageAccess('/dashboard/customer')
   await connection()
+
+  // 🛡️ Cek permission sekali untuk UI
+  const [canCreate, canUpdate, canDelete] = await Promise.all([
+    canPerformAction(user.role, 'master.create'),
+    canPerformAction(user.role, 'master.update'),
+    canPerformAction(user.role, 'master.delete'),
+  ])
 
   const params = await searchParams
   const currentPage = Math.max(1, parseInt(params.page ?? '1') || 1)
   const q = (params.q ?? '').trim()
 
   const where = {
-    deletedAt: null,   // ← FILTER SOFT DELETE (WAJIB!)
+    deletedAt: null,
     ...(q
       ? {
           OR: [
@@ -61,19 +68,25 @@ export default async function CustomerPage({
             Kelola data customer / perusahaan
           </p>
         </div>
-        <CustomerFormDialog
-          mode="create"
-          trigger={
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Customer
-            </Button>
-          }
-        />
+        {canCreate && (
+          <CustomerFormDialog
+            mode="create"
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Customer
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <CustomerFilters />
-      <CustomerTable data={data} />
+      <CustomerTable
+        data={data}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
+      />
       <PaginationBar
         currentPage={currentPage}
         totalPages={totalPages}

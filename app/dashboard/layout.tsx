@@ -32,7 +32,6 @@ export default async function DashboardLayout({
   if (dbUser.status === 'PENDING') redirect('/pending?reason=pending')
   if (dbUser.status === 'REJECTED') redirect('/pending?reason=rejected')
 
-  // ← Fetch permissions dinamis dari DB
   const permissions = await getPermissionsForRole(dbUser.role as Role)
 
   return (
@@ -45,7 +44,7 @@ export default async function DashboardLayout({
         }}
         permissions={permissions}
       />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 max-w-full overflow-x-hidden">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
@@ -63,7 +62,9 @@ export default async function DashboardLayout({
             </BreadcrumbList>
           </Breadcrumb>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+        <div className="flex flex-1 flex-col gap-4 p-4 min-w-0 max-w-full overflow-x-hidden">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )

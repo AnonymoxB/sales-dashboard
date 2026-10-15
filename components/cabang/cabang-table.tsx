@@ -6,28 +6,14 @@ import { MoreHorizontal, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { CabangFormDialog } from './cabang-form-dialog'
 import { deleteCabang } from '@/lib/actions/cabang'
@@ -41,7 +27,15 @@ type Cabang = {
   _count?: { sales: number }
 }
 
-export function CabangTable({ data }: { data: Cabang[] }) {
+export function CabangTable({
+  data,
+  canUpdate,
+  canDelete,
+}: {
+  data: Cabang[]
+  canUpdate: boolean
+  canDelete: boolean
+}) {
   const [deleteTarget, setDeleteTarget] = useState<Cabang | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -60,16 +54,19 @@ export function CabangTable({ data }: { data: Cabang[] }) {
     })
   }
 
+  // 🔑 Kolom aksi hanya muncul kalau punya minimal satu permission
+  const showActions = canUpdate || canDelete
+
   if (data.length === 0) {
-  return (
-    <div className="rounded-lg border border-dashed p-12 text-center">
-      <p className="text-sm text-muted-foreground">
-        Tidak ada cabang yang cocok dengan filter. Coba ubah kata kunci atau{' '}
-        <span className="font-medium">tambah cabang baru</span>.
-      </p>
-    </div>
-  )
-}
+    return (
+      <div className="rounded-lg border border-dashed p-12 text-center">
+        <p className="text-sm text-muted-foreground">
+          Tidak ada cabang yang cocok dengan filter. Coba ubah kata kunci atau{' '}
+          <span className="font-medium">tambah cabang baru</span>.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -82,7 +79,7 @@ export function CabangTable({ data }: { data: Cabang[] }) {
               <TableHead>Wilayah</TableHead>
               <TableHead>Alamat</TableHead>
               <TableHead className="w-[100px] text-right">Sales</TableHead>
-              <TableHead className="w-[60px]" />
+              {showActions && <TableHead className="w-[60px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -99,45 +96,51 @@ export function CabangTable({ data }: { data: Cabang[] }) {
                 <TableCell className="text-right text-sm">
                   {c._count?.sales ?? 0}
                 </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button variant="ghost" size="icon" className="h-8 w-8" />
-                      }
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <CabangFormDialog
-                        mode="edit"
-                        defaultValues={{
-                          id: c.id,
-                          kode: c.kode,
-                          nama: c.nama,
-                          wilayah: c.wilayah ?? '',
-                          alamat: c.alamat ?? '',
-                        }}
-                        trigger={
-                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
+                {showActions && (
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button variant="ghost" size="icon" className="h-8 w-8" />
                         }
-                      />
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          setDeleteTarget(c)
-                        }}
-                        className="text-destructive focus:text-destructive"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Hapus
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canUpdate && (
+                          <CabangFormDialog
+                            mode="edit"
+                            defaultValues={{
+                              id: c.id,
+                              kode: c.kode,
+                              nama: c.nama,
+                              wilayah: c.wilayah ?? '',
+                              alamat: c.alamat ?? '',
+                            }}
+                            trigger={
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            }
+                          />
+                        )}
+                        {canDelete && (
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault()
+                              setDeleteTarget(c)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Hapus
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
